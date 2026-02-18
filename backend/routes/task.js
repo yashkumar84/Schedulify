@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const {
-    createTask,
-    updateTaskStatus,
-    getProjectTasks,
-    approveTask,
-    rejectTask,
-    getPendingTasks
+  createTask,
+  updateTaskStatus,
+  getProjectTasks,
+  approveTask,
+  rejectTask,
+  getPendingTasks
 } = require('../controllers/TaskController');
 const { authenticate, authorize } = require('../helpers/auth');
 const { Roles } = require('../config/global');
