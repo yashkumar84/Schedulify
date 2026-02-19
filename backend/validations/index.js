@@ -7,6 +7,7 @@ const projectSchema = z.object({
   endDate: z.string().or(z.date()),
   budget: z.number().min(0).optional(),
   manager: z.string().optional(),
+  collaborators: z.array(z.string()).optional(),
   description: z.string().optional()
 });
 

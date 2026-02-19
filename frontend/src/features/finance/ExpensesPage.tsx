@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExpenseStatus } from '../../../../backend/src/common/types/finance';
+import { ExpenseStatus } from './types';
 import {
     DollarSign,
     FileText,

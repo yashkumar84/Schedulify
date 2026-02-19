@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Project Assignment</title>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Schedulifynow</h1>
+        </div>
+        <div class="content">
+            <h2>New Project Assigned: {{PROJECT_NAME}}</h2>
+            <p>Hi {{USER_NAME}},</p>
+            <p>You have been added to a new project on Schedulifynow. Here are the details:</p>
+
+            <div
+                style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin: 20px 0; text-align: left;">
+                <div style="margin-bottom: 12px; font-size: 15px;">
+                    <span style="font-weight: 600; color: #64748b; width: 120px; display: inline-block;">Project
+                        Name:</span>
+                    <span style="color: #1e293b; font-weight: 600;">{{PROJECT_NAME}}</span>
+                </div>
+                <div style="margin-bottom: 12px; font-size: 15px;">
+                    <span style="font-weight: 600; color: #64748b; width: 120px; display: inline-block;">Client:</span>
+                    <span style="color: #1e293b;">{{CLIENT_NAME}}</span>
+                </div>
+                <div style="margin-bottom: 12px; font-size: 15px;">
+                    <span style="font-weight: 600; color: #64748b; width: 120px; display: inline-block;">Start
+                        Date:</span>
+                    <span style="color: #1e293b;">{{START_DATE}}</span>
+                </div>
+                <div style="margin-bottom: 12px; font-size: 15px;">
+                    <span style="font-weight: 600; color: #64748b; width: 120px; display: inline-block;">Role:</span>
+                    <span style="color: #4f46e5; font-weight: 600;">{{ASSIGNED_ROLE}}</span>
+                </div>
+            </div>
+
+            <a href="{{LOGIN_URL}}"
+                style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px;">View
+                Project Details</a>
+
+            <p style="margin-top: 30px; font-size: 14px; color: #6b7280;">If you have any questions, please contact your
+                project manager.</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 Schedulifynow Team. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>

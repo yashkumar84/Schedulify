@@ -7,6 +7,6 @@ const { validate, projectSchema } = require('../validations');
 
 router.get('/', authenticate, getAllProjects);
 router.get('/:id', authenticate, getProjectById);
-router.post('/', authenticate, authorize(Roles.SUPER_ADMIN), validate(projectSchema), createProject);
+router.post('/', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), validate(projectSchema), createProject);
 
 module.exports = router;

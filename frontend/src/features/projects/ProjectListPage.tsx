@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
-import { ProjectStatus } from '../../../../backend/src/common/types/project';
+// Local definitions for project types
+export enum ProjectStatus {
+    NOT_STARTED = 'NOT_STARTED',
+    IN_PROGRESS = 'IN_PROGRESS',
+    ON_HOLD = 'ON_HOLD',
+    COMPLETED = 'COMPLETED',
+    CANCELLED = 'CANCELLED'
+}
 import {
     Search,
     Filter,
     Plus,
     Calendar,
-    DollarSign,
+    IndianRupee,
     ChevronRight,
     Shield,
     Briefcase,
@@ -21,8 +28,9 @@ import { motion } from 'framer-motion';
 import { useProjects, useCreateProject, useDeleteProject, useTeam } from '../../hooks/useApi';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, AlertCircle as AlertIcon } from 'lucide-react';
+import { Loader2, AlertCircle as AlertIcon, Users } from 'lucide-react';
 import CustomSelect from '../../components/ui/CustomSelect';
+import MultiSelect from '../../components/ui/MultiSelect';
 import { useDebounce } from '../../hooks/useDebounce';
 import ActionMenu, { ActionMenuItem } from '../../components/ui/ActionMenu';
 
@@ -69,8 +77,8 @@ const ProjectCard: React.FC<{
                     </span>
                 </div>
                 <div className="flex items-center gap-2 text-secondary-600">
-                    <DollarSign size={16} />
-                    <span className="text-xs font-medium">${project.budget?.toLocaleString()}</span>
+                    <IndianRupee size={16} />
+                    <span className="text-xs font-medium">₹{project.budget?.toLocaleString('en-IN')}</span>
                 </div>
             </div>
 
@@ -86,6 +94,24 @@ const ProjectCard: React.FC<{
                         {project.manager?.name || 'Assigned Lead'}
                     </span>
                 </div>
+                {project.collaborators && project.collaborators.length > 0 && (
+                    <div className="flex -space-x-2">
+                        {project.collaborators.slice(0, 3).map((col: any, i: number) => (
+                            <div
+                                key={col.id || i}
+                                className="w-6 h-6 rounded-full border-2 border-card bg-secondary-100 flex items-center justify-center text-[8px] font-bold text-secondary-600"
+                                title={col.name}
+                            >
+                                {col.name?.charAt(0)}
+                            </div>
+                        ))}
+                        {project.collaborators.length > 3 && (
+                            <div className="w-6 h-6 rounded-full border-2 border-card bg-secondary-200 flex items-center justify-center text-[8px] font-bold text-secondary-600">
+                                +{project.collaborators.length - 3}
+                            </div>
+                        )}
+                    </div>
+                )}
                 <div className="flex items-center text-primary-600 font-bold text-sm group-hover/footer:gap-2 transition-all">
                     Details <ChevronRight size={16} />
                 </div>
@@ -111,38 +137,41 @@ const ProjectListPage: React.FC = () => {
 
     const onSubmit = (data: any) => {
         const currentUser = user as any;
+        const currentUserRole = currentUser?.role;
 
-        // Determine manager: use selected, or auto-assign current user if SUPER_ADMIN
         let managerId = data.manager;
 
-        if (!managerId) {
-            if (currentUser?.role === 'SUPER_ADMIN') {
-                managerId = currentUser.id || currentUser._id;
-                console.log('Auto-assigning SUPER_ADMIN as manager:', managerId);
-            } else {
-                alert('Please select a project manager or contact an administrator.');
+        // RBAC logic from backend:
+        // PM creates -> they are forced as manager
+        // Admin creates -> they choose a manager
+        if (currentUserRole === 'PROJECT_MANAGER') {
+            managerId = currentUser.id || currentUser._id;
+        } else if (currentUserRole === 'SUPER_ADMIN') {
+            if (!managerId) {
+                alert('Please select a Project Manager');
                 return;
             }
+        } else {
+            alert('Not authorized to create projects');
+            return;
         }
 
         const payload = {
             ...data,
             manager: managerId,
+            collaborators: data.collaborators || [],
             status: ProjectStatus.NOT_STARTED,
             startDate: data.startDate || new Date().toISOString(),
             clientName: data.clientName || 'Default Client'
         };
 
-        console.log('Creating project with payload:', payload);
-
         createProjectMutation.mutate(payload, {
-            onSuccess: (res) => {
-                console.log('Project created successfully:', res);
+            onSuccess: () => {
                 setIsModalOpen(false);
                 reset();
+                // Optionally show a success toast here
             },
             onError: (err: any) => {
-                console.error('Project creation failed:', err);
                 alert(`Error: ${err.response?.data?.message || err.message || 'Unknown error'}`);
             }
         });
@@ -297,14 +326,24 @@ const ProjectListPage: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="py-4 px-6 font-mono text-sm font-bold">
-                                        ${project.budget?.toLocaleString()}
+                                        ₹{project.budget?.toLocaleString('en-IN')}
                                     </td>
                                     <td className="py-4 px-6">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center text-[10px] font-bold text-primary-700">
-                                                {project.manager?.name?.charAt(0) || 'M'}
+                                        <div className="flex flex-col gap-1.5">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center text-[10px] font-bold text-primary-700">
+                                                    {project.manager?.name?.charAt(0) || 'M'}
+                                                </div>
+                                                <span className="text-xs font-semibold text-secondary-900">{project.manager?.name || 'Assigned Lead'}</span>
                                             </div>
-                                            <span className="text-xs font-medium">{project.manager?.name || 'Assigned Lead'}</span>
+                                            {project.collaborators && project.collaborators.length > 0 && (
+                                                <div className="flex items-center gap-1 ml-1">
+                                                    <Users size={12} className="text-secondary-400" />
+                                                    <span className="text-[10px] font-medium text-secondary-500">
+                                                        {project.collaborators.length} collaborator(s)
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="py-4 px-6 text-right">
@@ -330,109 +369,142 @@ const ProjectListPage: React.FC = () => {
 
             {/* Create Project Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border p-8"
+                        className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border flex flex-col my-auto"
                     >
-                        <div className="flex justify-between items-center mb-6">
+                        {/* Sticky Header */}
+                        <div className="flex justify-between items-center px-8 pt-8 pb-4 border-b border-border sticky top-0 bg-card rounded-t-2xl z-10">
                             <h2 className="text-2xl font-bold">Create New Project</h2>
                             <button
+                                type="button"
                                 onClick={() => setIsModalOpen(false)}
                                 className="text-secondary-400 hover:text-secondary-600 transition-colors"
                             >
                                 <Trash2 size={24} className="rotate-45" />
                             </button>
                         </div>
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Project Name</label>
-                                <input
-                                    {...register('name', { required: 'Name is required' })}
-                                    className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
-                                    placeholder="e.g. Website Redesign"
-                                />
-                                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name?.message as string}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Client Name</label>
-                                <input
-                                    {...register('clientName', { required: 'Client Name is required' })}
-                                    className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
-                                    placeholder="e.g. Acme Corp"
-                                />
-                                {errors.clientName && <p className="text-red-500 text-xs mt-1">{errors.clientName?.message as string}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Description</label>
-                                <textarea
-                                    {...register('description')}
-                                    className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 h-24"
-                                    placeholder="Project details..."
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+                            <div className="overflow-y-auto px-8 py-4 space-y-4 flex-1">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Start Date</label>
+                                    <label className="block text-sm font-medium mb-1">Project Name</label>
                                     <input
-                                        {...register('startDate', { required: 'Start date is required' })}
-                                        type="date"
+                                        {...register('name', { required: 'Name is required' })}
                                         className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="e.g. Website Redesign"
                                     />
-                                    {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate?.message as string}</p>}
+                                    {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name?.message as string}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Deadline (End Date)</label>
+                                    <label className="block text-sm font-medium mb-1">Client Name</label>
                                     <input
-                                        {...register('endDate', { required: 'End date is required' })}
-                                        type="date"
+                                        {...register('clientName', { required: 'Client Name is required' })}
                                         className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="e.g. Acme Corp"
                                     />
-                                    {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate?.message as string}</p>}
+                                    {errors.clientName && <p className="text-red-500 text-xs mt-1">{errors.clientName?.message as string}</p>}
                                 </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-1.5 ml-1">
-                                    Project Manager {(user as any)?.role === 'SUPER_ADMIN' && <span className="text-[9px] normal-case text-secondary-400">(Optional - you'll be assigned if empty)</span>}
-                                </label>
-                                <Controller
-                                    name="manager"
-                                    control={control}
-                                    rules={{ required: (user as any)?.role !== 'SUPER_ADMIN' ? 'Manager is required' : false }}
-                                    render={({ field }) => (
-                                        <CustomSelect
-                                            options={members?.filter((m: any) => m.role === 'PROJECT_MANAGER' || m.role === 'SUPER_ADMIN').map((m: any) => ({
-                                                id: m.id || m._id,
-                                                label: `${m.name} (${m.role.replace('_', ' ')})`,
-                                                icon: m.role === 'SUPER_ADMIN' ? Shield : Briefcase,
-                                                color: m.role === 'SUPER_ADMIN' ? 'text-rose-600' : 'text-blue-600',
-                                                bg: m.role === 'SUPER_ADMIN' ? 'bg-rose-50' : 'bg-blue-50'
-                                            })) || []}
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            placeholder={(user as any)?.role === 'SUPER_ADMIN' ? "Leave empty to assign yourself" : "Choose a leader..."}
-                                            searchable={true}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Description</label>
+                                    <textarea
+                                        {...register('description')}
+                                        className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 h-24"
+                                        placeholder="Project details..."
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Start Date</label>
+                                        <input
+                                            {...register('startDate', { required: 'Start date is required' })}
+                                            type="date"
+                                            className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                                         />
-                                    )}
-                                />
-                                {errors.manager && <p className="text-rose-500 text-[10px] font-bold uppercase mt-1 px-1">{errors.manager?.message as string}</p>}
-                            </div>
+                                        {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate?.message as string}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Deadline (End Date)</label>
+                                        <input
+                                            {...register('endDate', { required: 'End date is required' })}
+                                            type="date"
+                                            className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                                        />
+                                        {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate?.message as string}</p>}
+                                    </div>
+                                </div>
+                                {(user as any)?.role === 'SUPER_ADMIN' && (
+                                    <div className="space-y-2">
+                                        <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-1.5 ml-1">
+                                            Project Manager <span className="text-rose-400">(required)</span>
+                                        </label>
+                                        <Controller
+                                            name="manager"
+                                            control={control}
+                                            rules={{ required: 'Manager is required' }}
+                                            render={({ field }) => (
+                                                <CustomSelect
+                                                    options={members?.filter((m: any) => m.role === 'PROJECT_MANAGER').map((m: any) => ({
+                                                        id: m.id || m._id,
+                                                        label: m.name,
+                                                        icon: Briefcase,
+                                                        color: 'text-blue-600',
+                                                        bg: 'bg-blue-50'
+                                                    })) || []}
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select a Project Manager..."
+                                                    searchable={true}
+                                                />
+                                            )}
+                                        />
+                                        {errors.manager && <p className="text-rose-500 text-[10px] font-bold uppercase mt-1 px-1">{errors.manager?.message as string}</p>}
+                                    </div>
+                                )}
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1 flex items-center gap-1.5 text-secondary-900">
-                                    <DollarSign size={14} className="text-secondary-400" />
-                                    Budget ($)
-                                </label>
-                                <input
-                                    {...register('budget', { valueAsNumber: true, required: 'Budget is required' })}
-                                    type="number"
-                                    className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
-                                    placeholder="5000"
-                                />
-                                {errors.budget && <p className="text-red-500 text-xs mt-1">{errors.budget?.message as string}</p>}
-                            </div>
-                            <div className="flex justify-end gap-3 mt-8">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 flex items-center gap-1.5 text-secondary-900">
+                                        <span className="text-secondary-400 font-bold text-base leading-none">₹</span>
+                                        Budget (INR)
+                                    </label>
+                                    <input
+                                        {...register('budget', { valueAsNumber: true, required: 'Budget is required' })}
+                                        type="number"
+                                        className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="500000"
+                                    />
+                                    {errors.budget && <p className="text-red-500 text-xs mt-1">{errors.budget?.message as string}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-1.5 ml-1">
+                                        Collaborators (Team Members)
+                                    </label>
+                                    <Controller
+                                        name="collaborators"
+                                        control={control}
+                                        defaultValue={[]}
+                                        render={({ field }) => (
+                                            <MultiSelect
+                                                options={members?.filter((m: any) => m.role !== 'SUPER_ADMIN' && m.role !== 'PROJECT_MANAGER').map((m: any) => ({
+                                                    id: m.id || m._id,
+                                                    label: m.name,
+                                                    icon: Users,
+                                                    color: 'text-primary-600',
+                                                    bg: 'bg-primary-50'
+                                                })) || []}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Assign team members..."
+                                            />
+                                        )}
+                                    />
+                                </div>
+                            </div>{/* end scrollable body */}
+
+                            {/* Sticky Footer */}
+                            <div className="flex justify-end gap-3 px-8 py-4 border-t border-border bg-card rounded-b-2xl">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}

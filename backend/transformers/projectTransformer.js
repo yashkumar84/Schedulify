@@ -11,6 +11,7 @@ const projectTransformer = (project, tasks = []) => {
     endDate: project.endDate,
     budget: project.budget,
     manager: project.manager,
+    collaborators: project.collaborators || [],
     status: project.status,
     description: project.description,
     metrics: {

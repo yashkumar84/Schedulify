@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
     ChevronLeft,
     Calendar,
-    DollarSign,
+    IndianRupee,
     Users,
     CheckCircle2,
     Clock,
@@ -12,16 +12,31 @@ import {
     Briefcase,
     Trash2,
     X,
-    MessageCircle
+    MessageCircle,
+    Shield
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useProjectDetail, useProjectTasks, useUpdateProject, useDeleteProject, useCreateTask, useDeleteTask, useTeam } from '../../hooks/useApi';
 import { Loader2 } from 'lucide-react';
-import { ProjectStatus } from '../../../../backend/src/common/types/project';
+// Local definitions for project types
+export enum ProjectStatus {
+    NOT_STARTED = 'NOT_STARTED',
+    IN_PROGRESS = 'IN_PROGRESS',
+    ON_HOLD = 'ON_HOLD',
+    COMPLETED = 'COMPLETED',
+    CANCELLED = 'CANCELLED'
+}
+
+export enum TaskPriority {
+    LOW = 'LOW',
+    MEDIUM = 'MEDIUM',
+    HIGH = 'HIGH',
+    URGENT = 'URGENT'
+}
 import { useForm, Controller } from 'react-hook-form';
 import CustomSelect from '../../components/ui/CustomSelect';
+import MultiSelect from '../../components/ui/MultiSelect';
 import ActionMenu, { ActionMenuItem } from '../../components/ui/ActionMenu';
-import { TaskPriority } from '../../../../backend/src/common/types/task';
 import { useAuthStore } from '../../store/authStore';
 import ChatPanel from '../../components/chat/ChatPanel';
 import { initializeSocket } from '../../utils/socket';
@@ -59,6 +74,7 @@ const ProjectDetailPage: React.FC = () => {
         editForm.setValue('startDate', new Date(project.startDate).toISOString().split('T')[0]);
         editForm.setValue('endDate', new Date(project.endDate).toISOString().split('T')[0]);
         editForm.setValue('status', project.status);
+        editForm.setValue('collaborators', project.collaborators?.map((c: any) => c.id || c._id) || []);
         setIsEditModalOpen(true);
     };
 
@@ -214,11 +230,11 @@ const ProjectDetailPage: React.FC = () => {
 
                 <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
                     <div className="flex items-center gap-3 mb-4 text-secondary-500">
-                        <DollarSign size={20} />
+                        <IndianRupee size={20} />
                         <span className="text-sm font-bold uppercase tracking-wider">Budget</span>
                     </div>
                     <div className="space-y-1">
-                        <h3 className="text-2xl font-bold">${project.budget?.toLocaleString()}</h3>
+                        <h3 className="text-2xl font-bold">₹{project.budget?.toLocaleString('en-IN')}</h3>
                         <p className="text-xs text-secondary-500">Total estimated budget</p>
                     </div>
                 </div>
@@ -250,23 +266,15 @@ const ProjectDetailPage: React.FC = () => {
                             <p className="text-sm text-secondary-500 mt-1">People working on this project</p>
                         </div>
                         <span className="bg-primary-100 text-primary-600 px-3 py-1 rounded-full text-xs font-bold">
-                            {(() => {
-                                // Get unique team members from tasks + manager
-                                const uniqueMembers = new Set();
-                                if (project.manager?._id) uniqueMembers.add(project.manager._id);
-                                tasks?.forEach((task: any) => {
-                                    if (task.assignedTo?._id) uniqueMembers.add(task.assignedTo._id);
-                                });
-                                return uniqueMembers.size;
-                            })()} Members
+                            {(project.manager ? 1 : 0) + (project.collaborators?.length || 0)} Members
                         </span>
                     </div>
                     <div className="space-y-3">
                         {/* Show Project Manager first */}
                         {project.manager && (
-                            <div className="flex items-center justify-between p-3 bg-secondary-50/50 rounded-xl hover:bg-secondary-50 transition-colors">
+                            <div className="flex items-center justify-between p-3 bg-secondary-50/50 rounded-xl hover:bg-secondary-50 transition-colors border border-transparent hover:border-border">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold">
+                                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold shadow-sm">
                                         {project.manager.name?.charAt(0) || 'M'}
                                     </div>
                                     <div>
@@ -274,44 +282,44 @@ const ProjectDetailPage: React.FC = () => {
                                         <p className="text-xs text-secondary-500">{project.manager.email}</p>
                                     </div>
                                 </div>
-                                <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-600">
-                                    PROJECT MANAGER
-                                </span>
+                                <div className="flex flex-col items-end gap-1">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary-100 text-primary-600 uppercase tracking-tighter">
+                                        Project Manager
+                                    </span>
+                                    <span className="text-[9px] font-mono text-secondary-400">LEAD</span>
+                                </div>
                             </div>
                         )}
 
-                        {/* Show unique team members from tasks */}
-                        {(() => {
-                            const uniqueMembers = new Map();
-                            tasks?.forEach((task: any) => {
-                                if (task.assignedTo?._id && task.assignedTo._id !== project.manager?._id) {
-                                    uniqueMembers.set(task.assignedTo._id, task.assignedTo);
-                                }
-                            });
-                            return Array.from(uniqueMembers.values()).map((member: any) => (
-                                <div key={member._id} className="flex items-center justify-between p-3 bg-secondary-50/50 rounded-xl hover:bg-secondary-50 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold">
-                                            {member.name?.charAt(0) || 'U'}
+                        {/* Show Collaborators explicitly */}
+                        {project.collaborators && project.collaborators.length > 0 && (
+                            <div className="pt-2">
+                                <p className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest mb-3 ml-1">Collaborators</p>
+                                <div className="space-y-2">
+                                    {project.collaborators.map((member: any) => (
+                                        <div key={member.id || member._id} className="flex items-center justify-between p-3 bg-white border border-border rounded-xl hover:shadow-sm transition-all group">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-secondary-100 flex items-center justify-center text-secondary-600 font-bold group-hover:bg-primary-50 group-hover:text-primary-600 transition-colors">
+                                                    {member.name?.charAt(0) || 'U'}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold">{member.name}</p>
+                                                    <p className="text-xs text-secondary-500">{member.email}</p>
+                                                </div>
+                                            </div>
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-100 text-secondary-600">
+                                                {member.role?.replace('_', ' ')}
+                                            </span>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-bold">{member.name}</p>
-                                            <p className="text-xs text-secondary-500">{member.email}</p>
-                                        </div>
-                                    </div>
-                                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${member.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-600' :
-                                        member.role === 'ADMIN' ? 'bg-blue-100 text-blue-600' :
-                                            member.role === 'MANAGER' ? 'bg-emerald-100 text-emerald-600' :
-                                                'bg-secondary-100 text-secondary-600'
-                                        }`}>
-                                        {member.role?.replace('_', ' ')}
-                                    </span>
+                                    ))}
                                 </div>
-                            ));
-                        })()}
+                            </div>
+                        )}
 
-                        {(!project.manager && (!tasks || tasks.length === 0)) && (
-                            <p className="text-center text-secondary-500 italic py-8">No team members assigned yet</p>
+                        {(!project.manager && (!project.collaborators || project.collaborators.length === 0)) && (
+                            <p className="text-center text-secondary-500 italic py-8 bg-secondary-50 rounded-2xl border border-dashed border-secondary-200">
+                                No team members assigned yet
+                            </p>
                         )}
                     </div>
                 </div>
@@ -492,7 +500,7 @@ const ProjectDetailPage: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Budget ($)</label>
+                                    <label className="block text-sm font-medium mb-1">Budget (₹)</label>
                                     <input
                                         {...editForm.register('budget', { valueAsNumber: true })}
                                         type="number"
@@ -531,6 +539,27 @@ const ProjectDetailPage: React.FC = () => {
                                         className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                                     />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 uppercase tracking-widest text-[11px] text-secondary-500 font-bold">Collaborators</label>
+                                <Controller
+                                    name="collaborators"
+                                    control={editForm.control}
+                                    render={({ field }) => (
+                                        <MultiSelect
+                                            options={teamMembers?.filter((m: any) => m.role !== 'SUPER_ADMIN' && m.role !== 'PROJECT_MANAGER').map((m: any) => ({
+                                                id: m.id || m._id,
+                                                label: m.name,
+                                                icon: Users,
+                                                color: 'text-primary-600',
+                                                bg: 'bg-primary-50'
+                                            })) || []}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Update team members..."
+                                        />
+                                    )}
+                                />
                             </div>
                             <div className="flex justify-end gap-3 mt-8">
                                 <button

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { TaskStatus, TaskPriority } from '../../../../backend/src/common/types/task';
+import { TaskStatus, TaskPriority } from './types';
 import {
     MoreVertical,
     Plus,
@@ -63,8 +63,8 @@ const TaskCard: React.FC<{ task: Task; onClick?: () => void }> = ({ task, onClic
                     </span>
                     {task.approvalStatus && task.approvalStatus !== 'approved' && (
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${task.approvalStatus === 'pending'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-red-100 text-red-700'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
                             }`}>
                             {task.approvalStatus === 'pending' ? '⏳ Pending' : '❌ Rejected'}
                         </span>

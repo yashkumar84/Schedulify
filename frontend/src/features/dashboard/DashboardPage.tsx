@@ -6,11 +6,9 @@ import {
     AlertCircle,
     TrendingUp,
     ArrowUpRight,
-    Plus,
     Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import { useDashboardStats } from '../../hooks/useApi';
 
 const StatCard: React.FC<{
@@ -44,7 +42,6 @@ const StatCard: React.FC<{
 );
 
 const DashboardPage: React.FC = () => {
-    const navigate = useNavigate();
     const { data: statsData, isLoading } = useDashboardStats();
 
     if (isLoading) {
@@ -64,18 +61,9 @@ const DashboardPage: React.FC = () => {
 
     return (
         <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-                    <p className="text-secondary-500 mt-1">Welcome back! Here's what's happening with your projects.</p>
-                </div>
-                <button
-                    onClick={() => navigate('/projects')}
-                    className="flex items-center justify-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all"
-                >
-                    <Plus size={20} />
-                    New Project
-                </button>
+            <div>
+                <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Dashboard Overview</h1>
+                <p className="text-secondary-500 mt-1">Welcome back! Here's what's happening with your projects.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
