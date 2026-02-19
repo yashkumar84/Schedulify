@@ -8,7 +8,7 @@ const getProjectMessages = async(req, res) => {
   try {
     const { projectId } = req.params;
     const { limit = 50, before } = req.query;
-    const userId = req.user._id;
+    // const userId = req.user._id;
 
     // Verify user has access to this project
     const project = await Project.findById(projectId);

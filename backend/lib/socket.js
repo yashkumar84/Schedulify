@@ -25,6 +25,7 @@ const initializeSocket = (io) => {
       socket.user = user;
       next();
     } catch (error) {
+      console.log(error);
       next(new Error('Authentication error'));
     }
   });

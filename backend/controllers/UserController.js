@@ -1,12 +1,7 @@
-const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
-const { jwtSecret } = require('../config/config');
-
-const generateToken = (id) => {
-  return jwt.sign({ id }, jwtSecret, {
-    expiresIn: '30d'
-  });
-};
+const { hashPassword, comparePassword, generateToken } = require('../helpers/common');
+const sendEmail = require('../helpers/mail');
 
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
@@ -16,7 +11,7 @@ const loginUser = async(req, res) => {
 
   const user = await User.findOne({ email });
 
-  if (user && (await user.matchPassword(password))) {
+  if (user && comparePassword(password, user.password)) {
     res.json({
       user: {
         id: user._id,
@@ -24,7 +19,7 @@ const loginUser = async(req, res) => {
         email: user.email,
         role: user.role
       },
-      token: generateToken(user._id)
+      token: generateToken(user)
     });
   } else {
     res.status(401).json({ message: 'Invalid email or password' });
@@ -44,10 +39,12 @@ const registerUser = async(req, res) => {
     return;
   }
 
+  const hashedPassword = await hashPassword(password);
+
   const user = await User.create({
     name,
     email,
-    password,
+    password: hashedPassword,
     role: role || 'INHOUSE_TEAM' // Default role
   });
 
@@ -87,8 +84,58 @@ const updateUserRole = async(req, res) => {
   }
 };
 
+// @desc    Forgot Password
+// @route   POST /api/auth/forgot-password
+// @access  Public
+const forgotPassword = async(req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: 'There is no user with that email' });
+    }
+
+    // Generate reset token (6 digit code for simplicity)
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetToken = crypto.randomBytes(20).toString('hex');
+
+    user.forgotPasswordCode = resetCode;
+    user.forgotPasswordToken = resetToken;
+    await user.save();
+
+    const message = `
+      <h1>Password Reset Request</h1>
+      <p>Please use the following code to reset your password:</p>
+      <h2>${resetCode}</h2>
+      <p>This code is valid for 10 minutes.</p>
+    `;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Password Reset Code',
+        html: message
+      });
+
+      res.status(200).json({ message: 'Email sent' });
+    } catch (err) {
+      console.log(err);
+      user.forgotPasswordCode = '';
+      user.forgotPasswordToken = '';
+      await user.save();
+
+      return res.status(500).json({ message: 'Email could not be sent' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   loginUser,
   registerUser,
-  updateUserRole
+  updateUserRole,
+  forgotPassword
 };

@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const User = require('../models/User');
 const { Roles } = require('../config/global');
 const { mongoURI } = require('../config/config');
+const { hashPassword } = require('../helpers/common');
 
 dotenv.config();
 
@@ -14,10 +15,11 @@ const seed = async() => {
     // Create Super Admin
     const superAdminExists = await User.findOne({ email: 'hello@gmail.com' });
     if (!superAdminExists) {
+      const hashedPassword = await hashPassword('12345678');
       await User.create({
         name: 'Super Admin',
         email: 'hello@gmail.com',
-        password: '12345678',
+        password: hashedPassword,
         role: Roles.SUPER_ADMIN,
         isActive: true
       });
@@ -27,10 +29,11 @@ const seed = async() => {
     // Create Project Manager
     const managerExists = await User.findOne({ email: 'manager@taskify.com' });
     if (!managerExists) {
+      const hashedPassword = await hashPassword('manager123');
       await User.create({
         name: 'Project Manager',
         email: 'manager@taskify.com',
-        password: 'manager123',
+        password: hashedPassword,
         role: Roles.PROJECT_MANAGER,
         isActive: true
       });
@@ -40,10 +43,11 @@ const seed = async() => {
     // Create Finance User
     const financeExists = await User.findOne({ email: 'finance@taskify.com' });
     if (!financeExists) {
+      const hashedPassword = await hashPassword('finance123');
       await User.create({
         name: 'Finance Admin',
         email: 'finance@taskify.com',
-        password: 'finance123',
+        password: hashedPassword,
         role: Roles.FINANCE_TEAM,
         isActive: true
       });

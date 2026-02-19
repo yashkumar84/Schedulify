@@ -2,10 +2,10 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import api from '../../utils/api';
-import { LogIn, Loader2 } from 'lucide-react';
+import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const loginSchema = z.object({
@@ -20,6 +20,7 @@ const LoginPage: React.FC = () => {
     const login = useAuthStore((state) => state.login);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
+    const [showPassword, setShowPassword] = React.useState(false);
 
     const {
         register,
@@ -83,13 +84,31 @@ const LoginPage: React.FC = () => {
 
                         <div>
                             <label className="block text-sm font-medium text-secondary-700">Password</label>
-                            <input
-                                {...register('password')}
-                                type="password"
-                                className={`mt-1 block w-full px-4 py-3 rounded-xl border ${errors.password ? 'border-red-500' : 'border-input'} bg-background focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none`}
-                                placeholder="••••••••"
-                            />
+                            <div className="relative mt-1">
+                                <input
+                                    {...register('password')}
+                                    type={showPassword ? 'text' : 'password'}
+                                    className={`block w-full px-4 py-3 rounded-xl border ${errors.password ? 'border-red-500' : 'border-input'} bg-background focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none pr-12`}
+                                    placeholder="••••••••"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 focus:outline-none transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                            </div>
                             {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>}
+                        </div>
+
+                        <div className="flex items-center justify-end">
+                            <Link
+                                to="/forgot-password"
+                                className="text-sm font-medium text-primary-600 hover:text-primary-500 transition-colors"
+                            >
+                                Forgot password?
+                            </Link>
                         </div>
                     </div>
 

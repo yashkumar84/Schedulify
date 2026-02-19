@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './features/auth/LoginPage';
+import ForgotPasswordPage from './features/auth/ForgotPasswordPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import ProjectListPage from './features/projects/ProjectListPage';
 import ProjectDetailPage from './features/projects/ProjectDetailPage';
@@ -18,6 +19,7 @@ const App: React.FC = () => {
     <Router>
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/dashboard" element={
           isAuthenticated ? (
             <Layout>
