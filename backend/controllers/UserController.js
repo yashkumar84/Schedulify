@@ -34,7 +34,12 @@ const loginUser = async(req, res) => {
 // @route   POST /api/auth/register
 // @access  Private (SUPER_ADMIN only)
 const registerUser = async(req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, role } = req.body;
+
+  // Restrict creating SUPER_ADMIN
+  if (role === 'SUPER_ADMIN') {
+    return res.status(403).json({ message: 'Cannot create Super Admin users' });
+  }
 
   const userExists = await User.findOne({ email });
 
@@ -43,18 +48,41 @@ const registerUser = async(req, res) => {
     return;
   }
 
-  const hashedPassword = await hashPassword(password);
+  // Generate temporary password
+  const tempPassword = crypto.randomBytes(4).toString('hex'); // 8 characters
+  const hashedPassword = await hashPassword(tempPassword);
 
   const user = await User.create({
     name,
     email,
     password: hashedPassword,
-    role: role || 'INHOUSE_TEAM' // Default role
+    role: role || 'INHOUSE_TEAM'
   });
 
   if (user) {
+    // Send Welcome Email
+    const templatePath = path.join(__dirname, '../templates/WelcomeMember.html');
+    let htmlContent = fs.readFileSync(templatePath, 'utf8');
+
+    htmlContent = htmlContent
+      .replace('{{NAME}}', user.name)
+      .replace('{{ROLE}}', user.role.replace('_', ' '))
+      .replace('{{EMAIL}}', user.email)
+      .replace('{{PASSWORD}}', tempPassword)
+      .replace(/{{LOGIN_URL}}/g, process.env.CLIENT_URL || 'http://localhost:5173');
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Welcome to Schedulifynow - Your Account Details',
+        html: htmlContent
+      });
+    } catch (err) {
+      console.log('Email error:', err);
+    }
+
     res.status(201).json({
-      message: 'User created successfully',
+      message: 'User created successfully and email sent',
       user: {
         id: user._id,
         name: user.name,
@@ -72,9 +100,20 @@ const registerUser = async(req, res) => {
 // @access  Private (Super Admin)
 const updateUserRole = async(req, res) => {
   const { role } = req.body;
+
+  // Restrict promoting to SUPER_ADMIN
+  if (role === 'SUPER_ADMIN') {
+    return res.status(403).json({ message: 'Cannot promote user to Super Admin' });
+  }
+
   const user = await User.findById(req.params.id);
 
   if (user) {
+    // Restrict changing a SUPER_ADMIN's role
+    if (user.role === 'SUPER_ADMIN') {
+      return res.status(403).json({ message: 'Cannot change Super Admin role' });
+    }
+
     user.role = role || user.role;
     const updatedUser = await user.save();
     res.json({

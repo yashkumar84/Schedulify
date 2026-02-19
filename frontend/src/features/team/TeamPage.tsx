@@ -8,11 +8,12 @@ import {
     UserMinus,
     Briefcase,
     CreditCard,
-    Shield,
     Edit2,
-    Trash2
+    Trash2,
+    CheckCircle2,
+    AlertCircle
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTeam, useUpdateUserRole, useDeleteMember, useUpdateMember, useRegister } from '../../hooks/useApi';
 import { useAuthStore } from '../../store/authStore';
 import { Loader2 } from 'lucide-react';
@@ -27,7 +28,6 @@ const RoleDropdown: React.FC<{
     isSuperAdmin: boolean;
 }> = ({ value, onChange, isSuperAdmin }) => {
     const roles: SelectOption[] = [
-        { id: 'SUPER_ADMIN', label: 'Super Admin', icon: Shield, color: 'text-rose-600', bg: 'bg-rose-50' },
         { id: 'PROJECT_MANAGER', label: 'Project Manager', icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50' },
         { id: 'INHOUSE_TEAM', label: 'Inhouse Team', icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
         { id: 'OUTSOURCED_TEAM', label: 'Outsourced Team', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -118,6 +118,8 @@ const TeamPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [editingUser, setEditingUser] = useState<any>(null);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [inviteSuccess, setInviteSuccess] = useState(false);
 
     const updateMemberMutation = useUpdateMember();
     const registerMutation = useRegister();
@@ -155,14 +157,21 @@ const TeamPage: React.FC = () => {
 
     const onInviteSubmit = (data: any) => {
         registerMutation.mutate(
-            { ...data, password: 'Password123!', confirmPassword: 'Password123!' },
+            data,
             {
                 onSuccess: () => {
-                    setIsInviteModalOpen(false);
-                    inviteForm.reset();
+                    setInviteSuccess(true);
+                    setTimeout(() => {
+                        setIsInviteModalOpen(false);
+                        setInviteSuccess(false);
+                        inviteForm.reset();
+                        setToast({ message: 'Member invited successfully!', type: 'success' });
+                        setTimeout(() => setToast(null), 3000);
+                    }, 2000);
                 },
                 onError: (err: any) => {
-                    alert(`Invite failed: ${err.response?.data?.message || err.message}`);
+                    setToast({ message: err.response?.data?.message || 'Failed to invite member', type: 'error' });
+                    setTimeout(() => setToast(null), 3000);
                 }
             }
         );
@@ -170,14 +179,20 @@ const TeamPage: React.FC = () => {
 
     const handleDelete = (userId: string) => {
         if (!isSuperAdmin) return;
-        if (window.confirm('Are you sure you want to remove this member?')) {
-            deleteMemberMutation.mutate(userId);
-        }
+        deleteMemberMutation.mutate(userId, {
+            onSuccess: () => {
+                setToast({ message: 'Member removed successfully', type: 'success' });
+                setTimeout(() => setToast(null), 3000);
+            },
+            onError: (err: any) => {
+                setToast({ message: err.response?.data?.message || 'Failed to remove member', type: 'error' });
+                setTimeout(() => setToast(null), 3000);
+            }
+        });
     };
 
     const roles: SelectOption[] = [
         { id: 'ALL', label: 'All Roles', icon: Users, color: 'text-secondary-600', bg: 'bg-secondary-50' },
-        { id: 'SUPER_ADMIN', label: 'Super Admin', icon: Shield, color: 'text-rose-600', bg: 'bg-rose-50' },
         { id: 'PROJECT_MANAGER', label: 'Project Manager', icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50' },
         { id: 'INHOUSE_TEAM', label: 'Inhouse Team', icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
         { id: 'OUTSOURCED_TEAM', label: 'Outsourced Team', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -185,6 +200,7 @@ const TeamPage: React.FC = () => {
     ];
 
     const filteredUsers = users?.filter((u: any) => {
+        if (u.role === 'SUPER_ADMIN') return false;
         const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
         const matchesSearch = u.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
             u.email.toLowerCase().includes(debouncedSearch.toLowerCase());
@@ -354,7 +370,7 @@ const TeamPage: React.FC = () => {
                                     rules={{ required: 'Role is required' }}
                                     render={({ field }) => (
                                         <CustomSelect
-                                            options={roles.filter(r => r.id !== 'ALL')}
+                                            options={roles.filter(r => r.id !== 'ALL' && r.id !== 'SUPER_ADMIN')}
                                             value={field.value}
                                             onChange={field.onChange}
                                         />
@@ -431,7 +447,7 @@ const TeamPage: React.FC = () => {
                                     rules={{ required: 'Role is required' }}
                                     render={({ field }) => (
                                         <CustomSelect
-                                            options={roles.filter(r => r.id !== 'ALL')}
+                                            options={roles.filter(r => r.id !== 'ALL' && r.id !== 'SUPER_ADMIN')}
                                             value={field.value}
                                             onChange={field.onChange}
                                         />
@@ -439,7 +455,7 @@ const TeamPage: React.FC = () => {
                                 />
                             </div>
                             <p className="text-[10px] text-secondary-400 italic">
-                                * Temporary password will be set to: Password123!
+                                * A temporary password will be automatically generated and sent via email.
                             </p>
                             <div className="flex justify-end gap-3 mt-8">
                                 <button
@@ -450,16 +466,45 @@ const TeamPage: React.FC = () => {
                                     Cancel
                                 </button>
                                 <button
-                                    disabled={registerMutation.isPending}
-                                    className="bg-primary-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-primary-700 transition-all flex items-center gap-2"
+                                    disabled={registerMutation.isPending || inviteSuccess}
+                                    className={`${inviteSuccess ? 'bg-emerald-600' : 'bg-primary-600 hover:bg-primary-700'} text-white px-6 py-2 rounded-xl font-semibold transition-all flex items-center gap-2`}
                                 >
-                                    {registerMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : 'Send Invite'}
+                                    {registerMutation.isPending ? (
+                                        <Loader2 size={18} className="animate-spin" />
+                                    ) : inviteSuccess ? (
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircle2 size={18} />
+                                            <span>Invite Sent!</span>
+                                        </div>
+                                    ) : (
+                                        'Send Invite'
+                                    )}
                                 </button>
                             </div>
                         </form>
                     </motion.div>
                 </div>
             )}
+
+            {/* Toast Notification */}
+            <AnimatePresence>
+                {toast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 50 }}
+                        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100]"
+                    >
+                        <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border ${toast.type === 'success'
+                            ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
+                            : 'bg-rose-50 border-rose-100 text-rose-800'
+                            }`}>
+                            {toast.type === 'success' ? <CheckCircle2 className="text-emerald-500" /> : <AlertCircle className="text-rose-500" />}
+                            <span className="font-semibold">{toast.message}</span>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
