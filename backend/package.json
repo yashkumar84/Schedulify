@@ -16,7 +16,8 @@
     "prodtest": "NODE_ENV=prod node --inspect --max-old-space-size=8192 server.js",
     "prod": "NODE_ENV=prod forever start --inspect --max-old-space-size=8192 server.js",
     "prodrestart": "NODE_ENV=prod forever restart --inspect --max-old-space-size=8192 server.js",
-    "prodstop": "NODE_ENV=prod forever stop --inspect --max-old-space-size=8192 server.js"
+    "prodstop": "NODE_ENV=prod forever stop --inspect --max-old-space-size=8192 server.js",
+    "seed": "node scripts/seed.js"
   },
   "keywords": [],
   "author": "",
