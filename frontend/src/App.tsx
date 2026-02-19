@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './features/auth/LoginPage';
 import ForgotPasswordPage from './features/auth/ForgotPasswordPage';
+import VerifyOtpPage from './features/auth/VerifyOtpPage';
+import ResetPasswordPage from './features/auth/ResetPasswordPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import ProjectListPage from './features/projects/ProjectListPage';
 import ProjectDetailPage from './features/projects/ProjectDetailPage';
@@ -20,6 +22,8 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/verify-otp" element={<VerifyOtpPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/dashboard" element={
           isAuthenticated ? (
             <Layout>

@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const User = require('../models/User');
 const { hashPassword, comparePassword, generateToken } = require('../helpers/common');
@@ -105,18 +107,15 @@ const forgotPassword = async(req, res) => {
     user.forgotPasswordToken = resetToken;
     await user.save();
 
-    const message = `
-      <h1>Password Reset Request</h1>
-      <p>Please use the following code to reset your password:</p>
-      <h2>${resetCode}</h2>
-      <p>This code is valid for 10 minutes.</p>
-    `;
+    const templatePath = path.join(__dirname, '../templates/ForgotPassword.html');
+    let htmlContent = fs.readFileSync(templatePath, 'utf8');
+    htmlContent = htmlContent.replace('{{RESETPASSWORDCODE}}', resetCode);
 
     try {
       await sendEmail({
         email: user.email,
         subject: 'Password Reset Code',
-        html: message
+        html: htmlContent
       });
 
       res.status(200).json({ message: 'Email sent' });
@@ -133,9 +132,60 @@ const forgotPassword = async(req, res) => {
   }
 };
 
+// @desc    Verify OTP
+// @route   POST /api/auth/verify-otp
+// @access  Public
+const verifyOtp = async(req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user || user.forgotPasswordCode !== otp) {
+      return res.status(400).json({ message: 'Invalid verification code' });
+    }
+
+    res.status(200).json({
+      message: 'OTP verified',
+      token: user.forgotPasswordToken
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// @desc    Reset Password
+// @route   POST /api/auth/reset-password
+// @access  Public
+const resetPassword = async(req, res) => {
+  const { email, token, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email, forgotPasswordToken: token });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(password);
+
+    user.password = hashedPassword;
+    user.forgotPasswordCode = '';
+    user.forgotPasswordToken = '';
+    await user.save();
+
+    res.status(200).json({ message: 'Password reset successful' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   loginUser,
   registerUser,
   updateUserRole,
-  forgotPassword
+  forgotPassword,
+  verifyOtp,
+  resetPassword
 };
