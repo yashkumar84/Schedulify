@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { useProfile, useUpdateProfile, useChangePassword } from '../../hooks/useApi';
 import {
     User,
@@ -11,10 +12,13 @@ import {
     Camera,
     CheckCircle2,
     AlertCircle,
-    Loader2
+    Loader2,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 
 const ProfilePage: React.FC = () => {
+    const navigate = useNavigate();
     const { data: profile, isLoading: isProfileLoading } = useProfile();
     const updateProfileMutation = useUpdateProfile();
     const changePasswordMutation = useChangePassword();
@@ -22,6 +26,9 @@ const ProfilePage: React.FC = () => {
     const [profileSuccess, setProfileSuccess] = useState(false);
     const [passwordSuccess, setPasswordSuccess] = useState(false);
     const [passwordError, setPasswordError] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const { register: registerProfile, handleSubmit: handleProfileSubmit } = useForm();
     const { register: registerPassword, handleSubmit: handlePasswordSubmit, reset: resetPassword } = useForm();
@@ -36,6 +43,10 @@ const ProfilePage: React.FC = () => {
     };
 
     const onChangePassword = (data: any) => {
+        if (data.currentPassword === data.newPassword) {
+            setPasswordError('New password cannot be the same as current password');
+            return;
+        }
         if (data.newPassword !== data.confirmPassword) {
             setPasswordError('New passwords do not match');
             return;
@@ -91,14 +102,20 @@ const ProfilePage: React.FC = () => {
                         <p className="text-secondary-500 text-sm mt-1 capitalize">{profile?.role?.replace('_', ' ').toLowerCase()}</p>
 
                         <div className="mt-6 pt-6 border-t border-border grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-2xl font-bold">12</p>
+                            <button
+                                onClick={() => navigate('/tasks')}
+                                className="p-3 rounded-xl hover:bg-secondary-50 transition-colors text-center group"
+                            >
+                                <p className="text-2xl font-bold group-hover:text-primary-600 transition-colors">{profile?.taskCount || 0}</p>
                                 <p className="text-xs text-secondary-500 uppercase tracking-wider">Tasks</p>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">4</p>
+                            </button>
+                            <button
+                                onClick={() => navigate('/projects')}
+                                className="p-3 rounded-xl hover:bg-secondary-50 transition-colors text-center group"
+                            >
+                                <p className="text-2xl font-bold group-hover:text-primary-600 transition-colors">{profile?.projectCount || 0}</p>
                                 <p className="text-xs text-secondary-500 uppercase tracking-wider">Projects</p>
-                            </div>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -136,7 +153,9 @@ const ProfilePage: React.FC = () => {
                                         {...registerProfile('email')}
                                         defaultValue={profile?.email}
                                         type="email"
-                                        className="w-full pl-10 pr-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                                        readOnly
+                                        disabled
+                                        className="w-full pl-10 pr-4 py-2 bg-secondary-100 border border-border rounded-xl outline-none cursor-not-allowed text-secondary-500 transition-all"
                                     />
                                 </div>
                             </div>
@@ -173,29 +192,56 @@ const ProfilePage: React.FC = () => {
                         <form onSubmit={handlePasswordSubmit(onChangePassword)} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-secondary-700 mb-1">Current Password</label>
-                                <input
-                                    {...registerPassword('currentPassword', { required: true })}
-                                    type="password"
-                                    className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all"
-                                />
+                                <div className="relative">
+                                    <input
+                                        {...registerPassword('currentPassword', { required: true })}
+                                        type={showCurrentPassword ? 'text' : 'password'}
+                                        className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all pr-12"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 focus:outline-none transition-colors"
+                                    >
+                                        {showCurrentPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-secondary-700 mb-1">New Password</label>
-                                    <input
-                                        {...registerPassword('newPassword', { required: true })}
-                                        type="password"
-                                        className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all"
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            {...registerPassword('newPassword', { required: true })}
+                                            type={showNewPassword ? 'text' : 'password'}
+                                            className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all pr-12"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewPassword(!showNewPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 focus:outline-none transition-colors"
+                                        >
+                                            {showNewPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-secondary-700 mb-1">Confirm New Password</label>
-                                    <input
-                                        {...registerPassword('confirmPassword', { required: true })}
-                                        type="password"
-                                        className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all"
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            {...registerPassword('confirmPassword', { required: true })}
+                                            type={showConfirmPassword ? 'text' : 'password'}
+                                            className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all pr-12"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 focus:outline-none transition-colors"
+                                        >
+                                            {showConfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -215,7 +261,7 @@ const ProfilePage: React.FC = () => {
                                     <button
                                         type="submit"
                                         disabled={changePasswordMutation.isPending}
-                                        className="flex items-center gap-2 px-6 py-2 bg-secondary-900 text-white rounded-xl font-semibold hover:bg-black transition-all disabled:opacity-50"
+                                        className="flex items-center gap-2 px-6 py-2 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 transition-all disabled:opacity-50"
                                     >
                                         {changePasswordMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Shield size={18} />}
                                         Update Password

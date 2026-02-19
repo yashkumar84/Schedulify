@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const User = require('../models/User');
+const Project = require('../models/Project');
+const Task = require('../models/Task');
 const { hashPassword, comparePassword, generateToken } = require('../helpers/common');
 const sendEmail = require('../helpers/mail');
 
@@ -181,11 +183,76 @@ const resetPassword = async(req, res) => {
   }
 };
 
+// @desc    Get user profile
+// @route   GET /api/users/profile
+// @access  Private
+const getUserProfile = async(req, res) => {
+  const user = await User.findById(req.user.id).select('-password');
+
+  if (user) {
+    const projectCount = await Project.countDocuments({ manager: user._id });
+    const taskCount = await Task.countDocuments({ assignedTo: user._id });
+
+    res.json({
+      ...user._doc,
+      projectCount,
+      taskCount
+    });
+  } else {
+    res.status(404).json({ message: 'User not found' });
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+const updateUserProfile = async(req, res) => {
+  const user = await User.findById(req.user.id);
+
+  if (user) {
+    user.name = req.body.name || user.name;
+    // Email is not allowed to be updated per user request
+    const updatedUser = await user.save();
+
+    res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role
+    });
+  } else {
+    res.status(404).json({ message: 'User not found' });
+  }
+};
+
+// @desc    Change password
+// @route   PUT /api/users/change-password
+// @access  Private
+const changePassword = async(req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const user = await User.findById(req.user.id);
+
+  if (user) {
+    if (comparePassword(currentPassword, user.password)) {
+      user.password = await hashPassword(newPassword);
+      await user.save();
+      res.json({ message: 'Password changed successfully' });
+    } else {
+      res.status(400).json({ message: 'Invalid current password' });
+    }
+  } else {
+    res.status(404).json({ message: 'User not found' });
+  }
+};
+
 module.exports = {
   loginUser,
   registerUser,
   updateUserRole,
   forgotPassword,
   verifyOtp,
-  resetPassword
+  resetPassword,
+  getUserProfile,
+  updateUserProfile,
+  changePassword
 };
