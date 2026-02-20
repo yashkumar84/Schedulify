@@ -74,7 +74,7 @@ const DashboardPage: React.FC = () => {
         },
         ...(statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'FINANCE_TEAM' ? [{
             title: 'Budget Total',
-            value: statsData?.totalBudget || '₹0',
+            value: statsData?.totalBudget || '$0',
             icon: TrendingUp,
             color: 'bg-amber-500',
             delay: 0.3
