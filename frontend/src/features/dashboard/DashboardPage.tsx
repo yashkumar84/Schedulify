@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useDashboardStats } from '../../hooks/useApi';
+import { useAuthStore } from '../../store/authStore';
+import PendingTasksPanel from '../tasks/PendingTasksPanel';
 
 const StatCard: React.FC<{
     title: string;
@@ -43,6 +45,7 @@ const StatCard: React.FC<{
 
 const DashboardPage: React.FC = () => {
     const { data: statsData, isLoading } = useDashboardStats();
+    const { user } = useAuthStore();
 
     if (isLoading) {
         return (
@@ -53,17 +56,56 @@ const DashboardPage: React.FC = () => {
     }
 
     const stats = [
+<<<<<<< HEAD
         { title: 'Total Projects', value: statsData?.totalProjects || 0, icon: Briefcase, color: 'bg-primary-500', trend: '+0%', delay: 0.1 },
         { title: 'Completed Tasks', value: statsData?.completedTasks || '0/0', icon: CheckSquare, color: 'bg-emerald-500', trend: '+0%', delay: 0.2 },
         { title: 'Budget Total', value: statsData?.totalBudget || '₹0', icon: TrendingUp, color: 'bg-amber-500', delay: 0.3 },
         { title: 'Overdue Tasks', value: statsData?.overdueTasks || 0, icon: AlertCircle, color: 'bg-red-500', delay: 0.4 },
+=======
+        {
+            title: statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'PROJECT_MANAGER' ? 'Total Projects' : 'Active Projects',
+            value: statsData?.totalProjects || 0,
+            icon: Briefcase,
+            color: 'bg-primary-500',
+            trend: '+0%',
+            delay: 0.1
+        },
+        {
+            title: statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'PROJECT_MANAGER' ? 'Completed Tasks' : 'My Completed Tasks',
+            value: statsData?.completedTasks || '0/0',
+            icon: CheckSquare,
+            color: 'bg-emerald-500',
+            trend: '+0%',
+            delay: 0.2
+        },
+        ...(statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'FINANCE_TEAM' ? [{
+            title: 'Budget Total',
+            value: statsData?.totalBudget || '$0',
+            icon: TrendingUp,
+            color: 'bg-amber-500',
+            delay: 0.3
+        }] : []),
+        {
+            title: 'Overdue Tasks',
+            value: statsData?.overdueTasks || 0,
+            icon: AlertCircle,
+            color: 'bg-red-500',
+            delay: 0.4
+        },
+>>>>>>> origin/features
     ];
+
+    const welcomeMessage = statsData?.userRole === 'SUPER_ADMIN'
+        ? "Global Overview: Here's what's happening across all projects."
+        : statsData?.userRole === 'PROJECT_MANAGER'
+            ? "Management Overview: Tracking progress for your assigned projects."
+            : "Personal Overview: Here are your tasks and project involvements.";
 
     return (
         <div className="space-y-8">
             <div>
                 <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-                <p className="text-secondary-500 mt-1">Welcome back! Here's what's happening with your projects.</p>
+                <p className="text-secondary-500 mt-1">{welcomeMessage}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -71,6 +113,11 @@ const DashboardPage: React.FC = () => {
                     <StatCard key={index} {...stat} />
                 ))}
             </div>
+
+            {/* Admin Approval Panel */}
+            {user?.role === 'SUPER_ADMIN' && (
+                <PendingTasksPanel />
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Activity */}

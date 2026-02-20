@@ -10,7 +10,7 @@ const { projectTransformer, projectListTransformer } = require('../transformers/
 // @desc    Get all projects
 // @route   GET /api/projects
 // @access  Private
-const getAllProjects = async (req, res) => {
+const getAllProjects = async(req, res) => {
   try {
     const { id, role } = req.user;
     let query = {};
@@ -38,7 +38,7 @@ const getAllProjects = async (req, res) => {
 // @desc    Get project by ID with tasks and metrics
 // @route   GET /api/projects/:id
 // @access  Private
-const getProjectById = async (req, res) => {
+const getProjectById = async(req, res) => {
   try {
     const project = await Project.findById(req.params.id)
       .populate('manager', 'name email')
@@ -67,14 +67,14 @@ const getProjectById = async (req, res) => {
 // @desc    Create a project
 // @route   POST /api/projects
 // @access  Private (Admin/Project Manager)
-const createProject = async (req, res) => {
+const createProject = async(req, res) => {
   try {
     const { name, clientName, startDate, endDate, budget, manager, collaborators, description } = req.body;
     const { id: currentUserId, role: currentUserRole } = req.user;
 
     let projectManagerId = manager;
 
-    // RBAC Logic: 
+    // RBAC Logic:
     // If PM creates, they are forced as manager
     // If Super Admin creates, they must specify a manager
     if (currentUserRole === Roles.PROJECT_MANAGER) {
@@ -102,7 +102,7 @@ const createProject = async (req, res) => {
 
     // Fetch details for emails
     const managerUser = await User.findById(projectManagerId);
-    const collaboratorUsers = await User.find({ _id: { $in: collaborators || [] } });
+    const collaboratorUsers = await User.find({ _id: { $in: collaborators || [] }});
     const superAdmins = await User.find({ role: Roles.SUPER_ADMIN });
 
     // Prepare recipients list (avoid duplicates)

@@ -8,9 +8,34 @@ const Expense = require('../models/Expense');
 // @access  Private
 const getStats = async (req, res) => {
   try {
-    const projects = await Project.find();
-    const tasks = await Task.find();
-    const expenses = await Expense.find({ status: 'approved' });
+    const { id: userId, role: userRole } = req.user;
+    const { Roles } = require('../config/global');
+
+    let projects = [];
+    let tasks = [];
+    let expenses = [];
+
+    if (userRole === Roles.SUPER_ADMIN) {
+      projects = await Project.find();
+      tasks = await Task.find();
+      expenses = await Expense.find({ status: 'approved' });
+    } else if (userRole === Roles.PROJECT_MANAGER) {
+      projects = await Project.find({ manager: userId });
+      const projectIds = projects.map(p => p._id);
+      tasks = await Task.find({ project: { $in: projectIds }});
+      expenses = await Expense.find({ project: { $in: projectIds }, status: 'approved' });
+    } else {
+      // INHOUSE_TEAM, OUTSOURCED_TEAM, FINANCE_TEAM
+      tasks = await Task.find({ assignedTo: userId });
+      const projectIds = [...new Set(tasks.map(t => t.project.toString()))];
+      projects = await Project.find({ _id: { $in: projectIds }});
+
+      if (userRole === Roles.FINANCE_TEAM) {
+        expenses = await Expense.find({ status: 'approved' });
+      } else {
+        expenses = await Expense.find({ project: { $in: projectIds }, status: 'approved' });
+      }
+    }
 
     const totalProjects = projects.length;
     const totalTasks = tasks.length;
@@ -34,8 +59,9 @@ const getStats = async (req, res) => {
     });
 
     // Mock recent activity for now or fetch from activity logs
+    // Filter activity by user's relevant objects
     const recentActivity = tasks.slice(0, 5).map(t => ({
-      userName: 'System', // Could be expanded to actual user names
+      userName: 'System',
       action: 'updated task',
       target: t.title,
       time: 'Just now',
@@ -53,9 +79,10 @@ const getStats = async (req, res) => {
         totalBudget,
         totalSpent,
         remainingBudget: totalBudget - totalSpent,
-        expenseApprovalStatus: 'Pending reviews available'
+        expenseApprovalStatus: userRole === Roles.SUPER_ADMIN || userRole === Roles.FINANCE_TEAM ? 'Pending reviews available' : 'Restricted'
       },
-      progressPercentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+      progressPercentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+      userRole // Pass role for frontend customization
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

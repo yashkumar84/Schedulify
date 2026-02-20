@@ -36,4 +36,21 @@ const getBaseTemplate = (title, content) => {
   `;
 };
 
-module.exports = { getBaseTemplate };
+const getTaskStatusUpdateTemplate = (task, oldStatus, newStatus, updater) => {
+  return getBaseTemplate('Task Status Updated', {
+    body: `
+      <h2>Task Status Update</h2>
+      <p>Hello,</p>
+      <p>The status of task <strong>"${task.title}"</strong> has been updated.</p>
+      <div style="margin: 20px 0; padding: 15px; background-color: #f3f4f6; border-radius: 8px; text-align: left;">
+        <p style="margin: 5px 0;"><strong>Old Status:</strong> <span style="text-transform: capitalize;">${oldStatus}</span></p>
+        <p style="margin: 5px 0;"><strong>New Status:</strong> <span style="text-transform: capitalize; color: #4f46e5; font-weight: bold;">${newStatus}</span></p>
+        <p style="margin: 5px 0;"><strong>Updated By:</strong> ${updater.name}</p>
+      </div>
+      <p style="color: #6b7280; font-size: 14px;">Project: ${task.project.name || 'N/A'}</p>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/tasks?project=${task.project._id || task.project}" class="btn">View Task</a>
+    `
+  });
+};
+
+module.exports = { getBaseTemplate, getTaskStatusUpdateTemplate };

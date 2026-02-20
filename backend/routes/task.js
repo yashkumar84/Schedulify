@@ -4,6 +4,7 @@ const {
   createTask,
   updateTaskStatus,
   getProjectTasks,
+  getAdminAllTasks,
   approveTask,
   rejectTask,
   getPendingTasks
@@ -15,6 +16,7 @@ const { validate, taskSchema } = require('../validations');
 router.post('/', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), validate(taskSchema), createTask);
 router.put('/:id/status', authenticate, updateTaskStatus);
 router.get('/project/:projectId', authenticate, getProjectTasks);
+router.get('/all', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), getAdminAllTasks);
 
 // Approval routes (Admin only)
 router.get('/pending', authenticate, authorize(Roles.SUPER_ADMIN), getPendingTasks);

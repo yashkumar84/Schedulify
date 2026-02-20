@@ -6,6 +6,13 @@ const { Roles } = require('../config/global');
 // @access  Private (Admin, PM)
 const getTeamMembers = async(req, res) => {
   try {
+    const { role: userRole } = req.user;
+
+    // OUTSOURCED_TEAM cannot see other members
+    if (userRole === Roles.OUTSOURCED_TEAM) {
+      return res.json([]);
+    }
+
     const members = await User.find({
       role: { $in: [Roles.INHOUSE_TEAM, Roles.OUTSOURCED_TEAM, Roles.PROJECT_MANAGER, Roles.FINANCE_TEAM, Roles.SUPER_ADMIN] }
     }).select('-password');

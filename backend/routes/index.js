@@ -8,6 +8,7 @@ const financeRoutes = require('./finance');
 const teamRoutes = require('./team');
 const chatRoutes = require('./chat');
 const userRoutes = require('./user');
+const notificationRoutes = require('./notification');
 const { getStats } = require('../controllers/DashboardController');
 const { authenticate } = require('../helpers/auth');
 
@@ -18,6 +19,8 @@ router.use('/finance', financeRoutes);
 router.use('/team', teamRoutes);
 router.use('/chat', chatRoutes);
 router.use('/users', userRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/upload', require('./upload'));
 router.get('/dashboard/stats', authenticate, getStats);
 
 module.exports = router;
