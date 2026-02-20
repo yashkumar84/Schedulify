@@ -63,10 +63,13 @@ const UserRow: React.FC<{
     onDelete: (id: string) => void;
     isSuperAdmin: boolean;
 }> = ({ user, index, onRoleChange, onEdit, onDelete, isSuperAdmin }) => {
-    const menuItems: ActionMenuItem[] = [
-        { id: 'edit', label: 'Edit Member', icon: Edit2, onClick: () => onEdit(user) },
-        { id: 'delete', label: 'Remove Member', icon: Trash2, onClick: () => onDelete(user.id), destructive: true },
-    ];
+    const menuItems: ActionMenuItem[] = [];
+    if (isSuperAdmin) {
+        menuItems.push(
+            { id: 'edit', label: 'Edit Member', icon: Edit2, onClick: () => onEdit(user) },
+            { id: 'delete', label: 'Remove Member', icon: Trash2, onClick: () => onDelete(user.id), destructive: true },
+        );
+    }
 
     return (
         <motion.tr
@@ -102,7 +105,7 @@ const UserRow: React.FC<{
                 </span>
             </td>
             <td className="py-4 px-6 text-right">
-                <ActionMenu items={menuItems} />
+                {menuItems.length > 0 && <ActionMenu items={menuItems} />}
             </td>
         </motion.tr>
     );

@@ -7,24 +7,27 @@ const { hashPassword } = require('../helpers/common');
 
 dotenv.config();
 
-const seed = async() => {
+const seed = async () => {
   try {
     await mongoose.connect(mongoURI);
     console.log('✅ Connected to MongoDB for seeding');
 
-    // Create Super Admin
-    const superAdminExists = await User.findOne({ email: 'hello@gmail.com' });
-    if (!superAdminExists) {
-      const hashedPassword = await hashPassword('12345678');
-      await User.create({
+    // Create or Update Super Admin
+    const adminEmail = process.env.DEFAULT_SUPER_ADMIN || 'superadmin@yopmail.com';
+    const adminPassword = process.env.DEFAULT_SUPER_ADMIN_PASSWORD || 'Password@2026';
+    const hashedPassword = await hashPassword(adminPassword);
+    const result = await User.findOneAndUpdate(
+      { email: adminEmail },
+      {
         name: 'Super Admin',
-        email: 'superadmin@yopmail.com',
+        email: adminEmail,
         password: hashedPassword,
         role: Roles.SUPER_ADMIN,
         isActive: true
-      });
-      console.log('✅ Super Admin created: superadmin@yopmail.com / 12345678');
-    }
+      },
+      { upsert: true, new: true }
+    );
+    console.log(`✅ Super Admin ready: ${adminEmail} / ${adminPassword}`);
 
     // Create Project Manager
     // const managerExists = await User.findOne({ email: 'manager@taskify.com' });

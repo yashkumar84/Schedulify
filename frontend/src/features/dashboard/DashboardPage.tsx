@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useDashboardStats } from '../../hooks/useApi';
+import { useAuthStore } from '../../store/authStore';
+import PendingTasksPanel from '../tasks/PendingTasksPanel';
 
 const StatCard: React.FC<{
     title: string;
@@ -43,6 +45,7 @@ const StatCard: React.FC<{
 
 const DashboardPage: React.FC = () => {
     const { data: statsData, isLoading } = useDashboardStats();
+    const { user } = useAuthStore();
 
     if (isLoading) {
         return (
@@ -103,6 +106,11 @@ const DashboardPage: React.FC = () => {
                     <StatCard key={index} {...stat} />
                 ))}
             </div>
+
+            {/* Admin Approval Panel */}
+            {user?.role === 'SUPER_ADMIN' && (
+                <PendingTasksPanel />
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Activity */}

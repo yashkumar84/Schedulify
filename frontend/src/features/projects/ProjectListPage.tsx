@@ -229,7 +229,7 @@ const ProjectListPage: React.FC = () => {
                     <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Projects</h1>
                     <p className="text-secondary-500 mt-1">Manage and track all your active projects.</p>
                 </div>
-                {user?.role === 'SUPER_ADMIN' && (
+                {(user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER') && (
                     <button
                         onClick={() => setIsModalOpen(true)}
                         className="flex items-center justify-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all font-mono tracking-tighter"

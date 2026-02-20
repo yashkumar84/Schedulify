@@ -231,7 +231,7 @@ const KanbanBoard: React.FC = () => {
     };
 
     const { user } = useAuthStore();
-    const canAddTask = user?.role === 'SUPER_ADMIN';
+    const canAddTask = user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER';
 
     if (isLoading) {
         return (
