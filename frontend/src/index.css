@@ -62,6 +62,23 @@
     body {
         @apply bg-background text-foreground antialiased selection:bg-primary-100 selection:text-primary-900;
     }
+
+    button {
+        @apply cursor-pointer;
+    }
+
+    button:disabled {
+        @apply cursor-not-allowed;
+    }
+
+    /* Ensuring common interactive elements have pointer */
+    [role="button"],
+    select,
+    input[type="submit"],
+    input[type="reset"],
+    input[type="button"] {
+        @apply cursor-pointer;
+    }
 }
 
 @layer components {

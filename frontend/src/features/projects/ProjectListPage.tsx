@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 // Local definitions for project types
 export enum ProjectStatus {
-    NOT_STARTED = 'NOT_STARTED',
-    IN_PROGRESS = 'IN_PROGRESS',
-    ON_HOLD = 'ON_HOLD',
-    COMPLETED = 'COMPLETED',
-    CANCELLED = 'CANCELLED'
+    NOT_STARTED = 'Not Started',
+    IN_PROGRESS = 'In Progress',
+    ON_HOLD = 'On Hold',
+    COMPLETED = 'Completed',
+    CANCELLED = 'Cancelled'
 }
 import {
     Search,
@@ -32,6 +31,9 @@ import CustomSelect from '../../components/ui/CustomSelect';
 import MultiSelect from '../../components/ui/MultiSelect';
 import { useDebounce } from '../../hooks/useDebounce';
 import ActionMenu, { ActionMenuItem } from '../../components/ui/ActionMenu';
+import ConfirmationModal from '../../components/ui/ConfirmationModal';
+import Toast from '../../components/ui/Toast';
+import { AnimatePresence } from 'framer-motion';
 
 const ProjectCard: React.FC<{
     project: any;
@@ -39,16 +41,25 @@ const ProjectCard: React.FC<{
     onEdit: (project: any) => void;
     onDelete: (id: string) => void;
 }> = ({ project, index, onEdit, onDelete }) => {
+    const navigate = useNavigate();
+    const { user } = useAuthStore();
+    const isAuthorized = user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER';
+
     const menuItems: ActionMenuItem[] = [
         { id: 'edit', label: 'Edit Project', icon: Edit2, onClick: () => onEdit(project) },
         { id: 'delete', label: 'Delete Project', icon: Trash2, onClick: () => onDelete(project._id), destructive: true },
     ];
+
+    const handleCardClick = () => {
+        navigate(`/projects/${project._id || project.id}`);
+    };
 
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05 }}
+            onClick={handleCardClick}
             className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg transition-all group cursor-pointer"
         >
             <div className="flex justify-between items-start mb-4">
@@ -58,7 +69,7 @@ const ProjectCard: React.FC<{
                     }`}>
                     {project.status}
                 </div>
-                <ActionMenu items={menuItems} />
+                {isAuthorized && <ActionMenu items={menuItems} />}
             </div>
 
             <h3 className="text-xl font-bold mb-2 group-hover:text-primary-600 transition-colors uppercase tracking-tight">
@@ -68,23 +79,22 @@ const ProjectCard: React.FC<{
                 {project.description || 'No description provided for this project.'}
             </p>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className={`grid ${user?.role === 'SUPER_ADMIN' ? 'grid-cols-2' : 'grid-cols-1'} gap-4 mb-6`}>
                 <div className="flex items-center gap-2 text-secondary-600">
                     <Calendar size={16} />
                     <span className="text-xs font-medium">
                         {new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                 </div>
-                <div className="flex items-center gap-2 text-secondary-600">
-                    <IndianRupee size={16} />
-                    <span className="text-xs font-medium">₹{project.budget?.toLocaleString('en-IN')}</span>
-                </div>
+                {user?.role === 'SUPER_ADMIN' && (
+                    <div className="flex items-center gap-2 text-secondary-600">
+                        <IndianRupee size={16} />
+                        <span className="text-xs font-medium">₹{project.budget?.toLocaleString('en-IN')}</span>
+                    </div>
+                )}
             </div>
 
-            <Link
-                to={`/projects/${project._id || project.id}`}
-                className="flex items-center justify-between pt-4 border-t border-border group/footer"
-            >
+            <div className="flex items-center justify-between pt-4 border-t border-border group/footer">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full border-2 border-card bg-primary-100 flex items-center justify-center text-[10px] font-bold text-primary-700 shadow-sm">
                         {project.manager?.name?.charAt(0) || 'M'}
@@ -114,7 +124,7 @@ const ProjectCard: React.FC<{
                 <div className="flex items-center text-primary-600 font-bold text-sm group-hover/footer:gap-2 transition-all">
                     Details <ChevronRight size={16} />
                 </div>
-            </Link>
+            </div>
         </motion.div>
     );
 };
@@ -132,6 +142,12 @@ const ProjectListPage: React.FC = () => {
     const createProjectMutation = useCreateProject();
     const deleteProjectMutation = useDeleteProject();
 
+    const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; projectId: string | null }>({
+        isOpen: false,
+        projectId: null,
+    });
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
     const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
 
     const onSubmit = (data: any) => {
@@ -147,11 +163,11 @@ const ProjectListPage: React.FC = () => {
             managerId = currentUser.id || currentUser._id;
         } else if (currentUserRole === 'SUPER_ADMIN') {
             if (!managerId) {
-                alert('Please select a Project Manager');
+                setNotification({ message: 'Please select a Project Manager', type: 'error' });
                 return;
             }
         } else {
-            alert('Not authorized to create projects');
+            setNotification({ message: 'Not authorized to create projects', type: 'error' });
             return;
         }
 
@@ -168,10 +184,10 @@ const ProjectListPage: React.FC = () => {
             onSuccess: () => {
                 setIsModalOpen(false);
                 reset();
-                // Optionally show a success toast here
+                setNotification({ message: 'Project created successfully!', type: 'success' });
             },
             onError: (err: any) => {
-                alert(`Error: ${err.response?.data?.message || err.message || 'Unknown error'}`);
+                setNotification({ message: err.response?.data?.message || err.message || 'Failed to create project', type: 'error' });
             }
         });
     };
@@ -182,8 +198,16 @@ const ProjectListPage: React.FC = () => {
     };
 
     const handleDelete = (projectId: string) => {
-        if (window.confirm('Are you sure you want to delete this project?')) {
-            deleteProjectMutation.mutate(projectId);
+        setDeleteConfirm({ isOpen: true, projectId });
+    };
+
+    const confirmDelete = () => {
+        if (deleteConfirm.projectId) {
+            deleteProjectMutation.mutate(deleteConfirm.projectId, {
+                onSuccess: () => {
+                    setDeleteConfirm({ isOpen: false, projectId: null });
+                }
+            });
         }
     };
 
@@ -301,7 +325,7 @@ const ProjectListPage: React.FC = () => {
                             <tr>
                                 <th className="py-4 px-6">Project</th>
                                 <th className="py-4 px-6">Status</th>
-                                <th className="py-4 px-6">Budget</th>
+                                {user?.role === 'SUPER_ADMIN' && <th className="py-4 px-6">Budget</th>}
                                 <th className="py-4 px-6">Lead</th>
                                 <th className="py-4 px-6 text-right">Actions</th>
                             </tr>
@@ -310,13 +334,14 @@ const ProjectListPage: React.FC = () => {
                             {filteredProjects?.map((project: any, index: number) => (
                                 <tr
                                     key={project._id || project.id || index}
-                                    className="hover:bg-secondary-50/50 transition-colors group"
+                                    onClick={() => navigate(`/projects/${project._id || project.id}`)}
+                                    className="hover:bg-secondary-50/50 transition-colors group cursor-pointer"
                                 >
                                     <td className="py-4 px-6">
-                                        <Link to={`/projects/${project._id || project.id}`} className="block">
+                                        <div>
                                             <p className="font-bold text-foreground group-hover:text-primary-600 transition-colors uppercase">{project.name}</p>
                                             <p className="text-xs text-secondary-500">{project.clientName}</p>
-                                        </Link>
+                                        </div>
                                     </td>
                                     <td className="py-4 px-6">
                                         <div className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${project.status === ProjectStatus.IN_PROGRESS ? 'bg-primary-100 text-primary-600' :
@@ -326,9 +351,11 @@ const ProjectListPage: React.FC = () => {
                                             {project.status}
                                         </div>
                                     </td>
-                                    <td className="py-4 px-6 font-mono text-sm font-bold">
-                                        ₹{project.budget?.toLocaleString('en-IN')}
-                                    </td>
+                                    {user?.role === 'SUPER_ADMIN' && (
+                                        <td className="py-4 px-6 font-mono text-sm font-bold">
+                                            ₹{project.budget?.toLocaleString('en-IN')}
+                                        </td>
+                                    )}
                                     <td className="py-4 px-6">
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2">
@@ -348,11 +375,13 @@ const ProjectListPage: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="py-4 px-6 text-right">
-                                        <ActionMenu items={[
-                                            { id: 'view', label: 'View Details', icon: ChevronRight, onClick: () => navigate(`/projects/${project._id || project.id}`) },
-                                            { id: 'edit', label: 'Edit', icon: Edit2, onClick: () => handleEdit(project) },
-                                            { id: 'delete', label: 'Delete', icon: Trash2, onClick: () => handleDelete(project._id || project.id), destructive: true },
-                                        ]} />
+                                        {(user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER') && (
+                                            <ActionMenu items={[
+                                                { id: 'view', label: 'View Details', icon: ChevronRight, onClick: () => navigate(`/projects/${project._id || project.id}`) },
+                                                { id: 'edit', label: 'Edit', icon: Edit2, onClick: () => handleEdit(project) },
+                                                { id: 'delete', label: 'Delete', icon: Trash2, onClick: () => handleDelete(project._id || project.id), destructive: true },
+                                            ]} />
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -464,19 +493,21 @@ const ProjectListPage: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 flex items-center gap-1.5 text-secondary-900">
-                                        <span className="text-secondary-400 font-bold text-base leading-none">₹</span>
-                                        Budget (INR)
-                                    </label>
-                                    <input
-                                        {...register('budget', { valueAsNumber: true, required: 'Budget is required' })}
-                                        type="number"
-                                        className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
-                                        placeholder="500000"
-                                    />
-                                    {errors.budget && <p className="text-red-500 text-xs mt-1">{errors.budget?.message as string}</p>}
-                                </div>
+                                {user?.role === 'SUPER_ADMIN' && (
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1 flex items-center gap-1.5 text-secondary-900">
+                                            <span className="text-secondary-400 font-bold text-base leading-none">₹</span>
+                                            Budget (INR)
+                                        </label>
+                                        <input
+                                            {...register('budget', { valueAsNumber: true })}
+                                            type="number"
+                                            className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                                            placeholder="500000"
+                                        />
+                                        {errors.budget && <p className="text-red-500 text-xs mt-1">{errors.budget?.message as string}</p>}
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-1.5 ml-1">
@@ -524,6 +555,26 @@ const ProjectListPage: React.FC = () => {
                     </motion.div>
                 </div>
             )}
+
+            <ConfirmationModal
+                isOpen={deleteConfirm.isOpen}
+                onClose={() => setDeleteConfirm({ isOpen: false, projectId: null })}
+                onConfirm={confirmDelete}
+                title="Delete Project"
+                message="Are you sure you want to delete this project? This will also remove all associated tasks and cannot be undone."
+                confirmLabel="Delete Project"
+                isLoading={deleteProjectMutation.isPending}
+            />
+
+            <AnimatePresence>
+                {notification && (
+                    <Toast
+                        message={notification.message}
+                        type={notification.type}
+                        onClose={() => setNotification(null)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };
