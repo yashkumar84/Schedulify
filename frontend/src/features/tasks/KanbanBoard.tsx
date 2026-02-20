@@ -3,14 +3,24 @@ import { useForm, Controller } from 'react-hook-form';
 import { TaskStatus, TaskPriority } from './types';
 import {
     MoreVertical,
-    Plus,
     MessageCircle,
     Paperclip,
     Clock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTasks, useProjects, useCreateTask, useUpdateTask, useDeleteTask, useAddComment } from '../../hooks/useApi';
-import { Loader2, AlertCircle as AlertIcon, Shield, Briefcase, Zap, AlertCircle, Clock as ClockIcon } from 'lucide-react';
+import {
+    Plus,
+    CheckSquare,
+    Loader2,
+    AlertCircle as AlertIcon,
+    Briefcase,
+    Shield,
+    Zap,
+    AlertCircle,
+    Clock as ClockIcon
+} from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 import CustomSelect, { SelectOption } from '../../components/ui/CustomSelect';
 import TaskDetailModal from './TaskDetailModal';
 
@@ -42,10 +52,10 @@ interface Task {
 
 const TaskCard: React.FC<{ task: Task; onClick?: () => void }> = ({ task, onClick }) => {
     const priorityColors: Record<string, string> = {
-        LOW: 'bg-blue-100 text-blue-700',
-        MEDIUM: 'bg-amber-100 text-amber-700',
-        HIGH: 'bg-orange-100 text-orange-700',
-        URGENT: 'bg-red-100 text-red-700',
+        low: 'bg-blue-100 text-blue-700',
+        medium: 'bg-amber-100 text-amber-700',
+        high: 'bg-orange-100 text-orange-700',
+        urgent: 'bg-red-100 text-red-700',
     };
 
     return (
@@ -93,7 +103,9 @@ const TaskCard: React.FC<{ task: Task; onClick?: () => void }> = ({ task, onClic
                 </div>
                 <div className="flex items-center gap-1 text-[10px]">
                     <Clock size={14} />
-                    <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No date'}</span>
+                    <span>{task.dueDate && !isNaN(new Date(task.dueDate).getTime())
+                        ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                        : 'No date'}</span>
                 </div>
             </div>
         </motion.div>
@@ -106,7 +118,8 @@ const KanbanColumn: React.FC<{
     tasks: Task[];
     onAddTask: (status: TaskStatus) => void;
     onTaskClick: (task: Task) => void;
-}> = ({ title, status, tasks, onAddTask, onTaskClick }) => (
+    canAdd: boolean;
+}> = ({ title, status, tasks, onAddTask, onTaskClick, canAdd }) => (
     <div className="bg-secondary-50/50 rounded-2xl p-4 flex flex-col min-h-[500px] border border-transparent hover:border-border transition-colors">
         <div className="flex items-center justify-between mb-4 px-2">
             <div className="flex items-center gap-2">
@@ -115,24 +128,28 @@ const KanbanColumn: React.FC<{
                     {tasks.length}
                 </span>
             </div>
-            <button
-                onClick={() => onAddTask(status)}
-                className="p-1 hover:bg-white rounded-lg transition-colors text-secondary-500 hover:text-primary-600"
-            >
-                <Plus size={18} />
-            </button>
+            {canAdd && (
+                <button
+                    onClick={() => onAddTask(status)}
+                    className="p-1 hover:bg-white rounded-lg transition-colors text-secondary-500 hover:text-primary-600"
+                >
+                    <Plus size={18} />
+                </button>
+            )}
         </div>
 
         <div className="flex-1 space-y-3">
             {tasks.map(task => (
                 <TaskCard key={task._id} task={task} onClick={() => onTaskClick(task)} />
             ))}
-            <button
-                onClick={() => onAddTask(status)}
-                className="w-full py-2 border-2 border-dashed border-secondary-200 rounded-xl text-secondary-400 text-sm font-medium hover:bg-white hover:border-primary-300 hover:text-primary-500 transition-all mt-2"
-            >
-                + Add Task
-            </button>
+            {canAdd && (
+                <button
+                    onClick={() => onAddTask(status)}
+                    className="w-full py-2 border-2 border-dashed border-secondary-200 rounded-xl text-secondary-400 text-sm font-medium hover:bg-white hover:border-primary-300 hover:text-primary-500 transition-all mt-2"
+                >
+                    + Add Task
+                </button>
+            )}
         </div>
     </div>
 );
@@ -213,6 +230,9 @@ const KanbanBoard: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const { user } = useAuthStore();
+    const canAddTask = user?.role === 'SUPER_ADMIN';
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
@@ -265,6 +285,7 @@ const KanbanBoard: React.FC = () => {
                                 tasks={tasks?.filter((t: any) => t.status === column.status) || []}
                                 onAddTask={handleAddTask}
                                 onTaskClick={handleTaskClick}
+                                canAdd={canAddTask}
                             />
                         </div>
                     ))}

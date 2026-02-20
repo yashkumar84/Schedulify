@@ -8,6 +8,7 @@ import DashboardPage from './features/dashboard/DashboardPage';
 import ProjectListPage from './features/projects/ProjectListPage';
 import ProjectDetailPage from './features/projects/ProjectDetailPage';
 import KanbanBoard from './features/tasks/KanbanBoard';
+import GlobalTasksPage from './features/tasks/GlobalTasksPage';
 import TeamPage from './features/team/TeamPage';
 import ExpensesPage from './features/finance/ExpensesPage';
 import ProfilePage from './features/profile/ProfilePage';
@@ -49,6 +50,13 @@ const App: React.FC = () => {
           isAuthenticated ? (
             <Layout>
               <KanbanBoard />
+            </Layout>
+          ) : <Navigate to="/login" />
+        } />
+        <Route path="/global-tasks" element={
+          isAuthenticated ? (
+            <Layout>
+              <GlobalTasksPage />
             </Layout>
           ) : <Navigate to="/login" />
         } />

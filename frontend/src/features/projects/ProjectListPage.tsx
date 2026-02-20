@@ -16,7 +16,6 @@ import {
     Calendar,
     IndianRupee,
     ChevronRight,
-    Shield,
     Briefcase,
     Edit2,
     Trash2,
@@ -230,13 +229,15 @@ const ProjectListPage: React.FC = () => {
                     <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Projects</h1>
                     <p className="text-secondary-500 mt-1">Manage and track all your active projects.</p>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center justify-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all font-mono tracking-tighter"
-                >
-                    <Plus size={20} />
-                    Create Project
-                </button>
+                {user?.role === 'SUPER_ADMIN' && (
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex items-center justify-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all font-mono tracking-tighter"
+                    >
+                        <Plus size={20} />
+                        Create Project
+                    </button>
+                )}
             </div>
 
             <div className="flex flex-col md:flex-row gap-4">

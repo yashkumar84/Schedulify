@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSocket } from '../utils/socket';
 import api from '../utils/api';
 
-interface Message {
+export interface Message {
     _id: string;
     project: string;
     sender: {
@@ -12,7 +12,13 @@ interface Message {
         role: string;
     };
     content: string;
-    type: 'text' | 'system' | 'file';
+    type: 'text' | 'system' | 'file' | 'image' | 'video' | 'audio';
+    metadata?: {
+        fileName?: string;
+        fileUrl?: string;
+        fileSize?: number;
+        mimetype?: string;
+    };
     createdAt: string;
     updatedAt: string;
 }
@@ -54,12 +60,35 @@ export const useChat = (projectId: string) => {
     }, [projectId]);
 
     // Send message
-    const sendMessage = useCallback((content: string) => {
+    const sendMessage = useCallback((content: string, type: string = 'text', metadata: any = null) => {
         const socket = socketRef.current;
-        if (socket && content.trim()) {
-            socket.emit('send-message', { projectId, content: content.trim() });
+        if (socket && (content.trim() || metadata)) {
+            socket.emit('send-message', {
+                projectId,
+                content: content.trim(),
+                type,
+                metadata
+            });
         }
     }, [projectId]);
+
+    // Upload file
+    const uploadFile = useCallback(async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await api.post('/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            throw error;
+        }
+    }, []);
 
     // Send typing indicator
     const sendTyping = useCallback(() => {
@@ -157,6 +186,7 @@ export const useChat = (projectId: string) => {
         isConnected,
         isLoading,
         sendMessage,
-        sendTyping
+        sendTyping,
+        uploadFile
     };
 };

@@ -5,8 +5,13 @@ const Message = require('../models/Message');
 
 // Store active users per project
 const activeUsers = new Map(); // projectId -> Set of { userId, socketId, userName }
+// Map of userId -> socketId for targeted notifications
+const userSockets = new Map();
 
 const initializeSocket = (io) => {
+  // Attach io to global for controller access (optional but useful)
+  global.io = io;
+
   // Middleware to authenticate socket connections
   io.use(async(socket, next) => {
     try {
@@ -31,7 +36,14 @@ const initializeSocket = (io) => {
   });
 
   io.on('connection', (socket) => {
+    const userId = socket.user._id.toString();
     console.log(`✅ User connected: ${socket.user.name} (${socket.id})`);
+
+    // Store user socket mapping
+    userSockets.set(userId, socket.id);
+
+    // Join a personal room for targeted notifications
+    socket.join(`user:${userId}`);
 
     // Join a project chat room
     socket.on('join-project', (projectId) => {
@@ -44,7 +56,7 @@ const initializeSocket = (io) => {
 
       const projectUsers = activeUsers.get(projectId);
       projectUsers.add({
-        userId: socket.user._id.toString(),
+        userId,
         socketId: socket.id,
         userName: socket.user.name,
         userRole: socket.user.role
@@ -92,14 +104,15 @@ const initializeSocket = (io) => {
     });
 
     // Send a message
-    socket.on('send-message', async({ projectId, content }) => {
+    socket.on('send-message', async({ projectId, content, type = 'text', metadata = null }) => {
       try {
         // Save message to database
         const message = await Message.create({
           project: projectId,
           sender: socket.user._id,
           content,
-          type: 'text'
+          type,
+          metadata
         });
 
         // Populate sender info
@@ -117,11 +130,12 @@ const initializeSocket = (io) => {
           },
           content: message.content,
           type: message.type,
+          metadata: message.metadata,
           createdAt: message.createdAt,
           updatedAt: message.updatedAt
         });
 
-        console.log(`💬 Message sent in project ${projectId} by ${socket.user.name}`);
+        console.log(`💬 ${message.type} message sent in project ${projectId} by ${socket.user.name}`);
       } catch (error) {
         console.error('Error sending message:', error);
         socket.emit('message-error', { message: 'Failed to send message' });
@@ -147,6 +161,9 @@ const initializeSocket = (io) => {
     socket.on('disconnect', () => {
       console.log(`❌ User disconnected: ${socket.user.name} (${socket.id})`);
 
+      // Remove user socket mapping
+      userSockets.delete(userId);
+
       // Remove from all active projects
       activeUsers.forEach((projectUsers, projectId) => {
         projectUsers.forEach(u => {
@@ -165,4 +182,13 @@ const initializeSocket = (io) => {
   });
 };
 
-module.exports = { initializeSocket };
+/**
+ * Send real-time notification to a user
+ */
+const sendNotification = (recipientId, notificationData) => {
+  if (global.io) {
+    global.io.to(`user:${recipientId}`).emit('new-notification', notificationData);
+  }
+};
+
+module.exports = { initializeSocket, sendNotification };

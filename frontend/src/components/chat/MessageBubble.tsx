@@ -1,18 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Download, File, Music } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-
-interface Message {
-    _id: string;
-    sender: {
-        _id: string;
-        name: string;
-        role: string;
-    };
-    content: string;
-    type: 'text' | 'system' | 'file';
-    createdAt: string;
-}
+import { Message } from '../../hooks/useChat';
 
 interface MessageBubbleProps {
     message: Message;
@@ -68,12 +58,77 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                     </span>
                 )}
                 <div
-                    className={`px-4 py-2 rounded-2xl ${isOwnMessage
-                            ? 'bg-primary-600 text-white rounded-br-sm'
-                            : 'bg-secondary-100 text-foreground rounded-bl-sm'
+                    className={`px-4 py-2 rounded-2xl overflow-hidden ${isOwnMessage
+                        ? 'bg-primary-600 text-white rounded-br-sm'
+                        : 'bg-secondary-100 text-foreground rounded-bl-sm'
                         }`}
                 >
-                    <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                    {message.type === 'text' && (
+                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                    )}
+
+                    {message.type === 'image' && message.metadata?.fileUrl && (
+                        <div className="space-y-2">
+                            <img
+                                src={message.metadata.fileUrl}
+                                alt={message.metadata.fileName}
+                                className="max-w-full rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
+                                onClick={() => window.open(message.metadata?.fileUrl, '_blank')}
+                            />
+                            {message.content && message.content !== message.metadata.fileName && (
+                                <p className="text-sm">{message.content}</p>
+                            )}
+                        </div>
+                    )}
+
+                    {message.type === 'video' && message.metadata?.fileUrl && (
+                        <div className="space-y-2 min-w-[240px]">
+                            <video
+                                controls
+                                className="max-w-full rounded-lg"
+                                src={message.metadata.fileUrl}
+                            />
+                            <p className="text-xs font-medium truncate">{message.metadata.fileName}</p>
+                        </div>
+                    )}
+
+                    {message.type === 'audio' && message.metadata?.fileUrl && (
+                        <div className="space-y-2 min-w-[240px]">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Music size={14} />
+                                <span className="text-xs font-medium truncate">{message.metadata.fileName}</span>
+                            </div>
+                            <audio
+                                controls
+                                className="w-full h-8"
+                                src={message.metadata.fileUrl}
+                            />
+                        </div>
+                    )}
+
+                    {message.type === 'file' && message.metadata?.fileUrl && (
+                        <a
+                            href={message.metadata.fileUrl}
+                            download={message.metadata.fileName}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-3 p-2 rounded-xl transition-colors ${isOwnMessage ? 'bg-white/10 hover:bg-white/20' : 'bg-white hover:bg-secondary-50'
+                                }`}
+                        >
+                            <div className={`p-2 rounded-lg ${isOwnMessage ? 'bg-white/20' : 'bg-primary-50'}`}>
+                                <File size={20} className={isOwnMessage ? 'text-white' : 'text-primary-600'} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-bold truncate ${isOwnMessage ? 'text-white' : 'text-secondary-900'}`}>
+                                    {message.metadata.fileName}
+                                </p>
+                                <p className={`text-[10px] ${isOwnMessage ? 'text-white/70' : 'text-secondary-500'}`}>
+                                    {message.metadata.fileSize ? (message.metadata.fileSize / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown size'}
+                                </p>
+                            </div>
+                            <Download size={18} className={isOwnMessage ? 'text-white/70' : 'text-secondary-400'} />
+                        </a>
+                    )}
                 </div>
                 <span className="text-[10px] text-secondary-400 mt-1 px-1">
                     {formatTime(message.createdAt)}

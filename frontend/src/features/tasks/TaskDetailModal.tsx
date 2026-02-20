@@ -60,14 +60,31 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     const approveTaskMutation = useApproveTask();
     const rejectTaskMutation = useRejectTask();
 
-    const { register, handleSubmit, control } = useForm({
+    const formatDate = (date: any) => {
+        if (!date) return '';
+        const d = new Date(date);
+        return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+    };
+
+    const { register, handleSubmit, control, reset } = useForm({
         defaultValues: {
             title: task.title,
             description: task.description,
-            dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+            dueDate: formatDate(task.dueDate),
             assignedTo: task.assignedTo?._id || task.assignedTo
         }
     });
+
+    React.useEffect(() => {
+        if (task) {
+            reset({
+                title: task.title,
+                description: task.description,
+                dueDate: formatDate(task.dueDate),
+                assignedTo: task.assignedTo?._id || task.assignedTo
+            });
+        }
+    }, [task, reset]);
 
     const isAdmin = user?.role === 'SUPER_ADMIN';
     const canApprove = isAdmin && task.approvalStatus === 'pending';
@@ -121,17 +138,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     };
 
     const priorityColors: Record<string, string> = {
-        LOW: 'bg-blue-100 text-blue-700',
-        MEDIUM: 'bg-amber-100 text-amber-700',
-        HIGH: 'bg-orange-100 text-orange-700',
-        URGENT: 'bg-red-100 text-red-700',
+        low: 'bg-blue-100 text-blue-700',
+        medium: 'bg-amber-100 text-amber-700',
+        high: 'bg-orange-100 text-orange-700',
+        urgent: 'bg-red-100 text-red-700',
     };
 
     const statusColors: Record<string, string> = {
-        TODO: 'bg-secondary-100 text-secondary-700',
-        IN_PROGRESS: 'bg-primary-100 text-primary-700',
-        IN_REVIEW: 'bg-purple-100 text-purple-700',
-        COMPLETED: 'bg-emerald-100 text-emerald-700',
+        todo: 'bg-secondary-100 text-secondary-700',
+        'in-progress': 'bg-primary-100 text-primary-700',
+        'in-review': 'bg-purple-100 text-purple-700',
+        completed: 'bg-emerald-100 text-emerald-700',
     };
 
     return (
@@ -154,7 +171,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         )}
                         <div className="flex items-center gap-2 mt-3 flex-wrap">
                             <span className={`px-2 py-1 rounded-lg text-xs font-bold ${statusColors[task.status] || 'bg-secondary-100 text-secondary-700'}`}>
-                                {task.status?.replace('_', ' ')}
+                                {task.status?.replace('-', ' ')}
                             </span>
                             <span className={`px-2 py-1 rounded-lg text-xs font-bold ${priorityColors[task.priority] || 'bg-secondary-100 text-secondary-700'}`}>
                                 {task.priority}

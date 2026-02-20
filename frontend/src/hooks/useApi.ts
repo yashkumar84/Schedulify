@@ -110,6 +110,16 @@ export const useProjectTasks = (projectId: string) => {
     });
 };
 
+export const useAdminAllTasks = () => {
+    return useQuery({
+        queryKey: ['tasks', 'all'],
+        queryFn: async () => {
+            const response = await api.get('/tasks/all');
+            return response.data;
+        },
+    });
+};
+
 export const useUpdateTaskStatus = () => {
     const queryClient = useQueryClient();
     return useMutation({
@@ -359,6 +369,42 @@ export const useUpdateMember = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['members'] });
+        },
+    });
+};
+// Notification Hooks
+export const useNotifications = () => {
+    return useQuery({
+        queryKey: ['notifications'],
+        queryFn: async () => {
+            const response = await api.get('/notifications');
+            return response.data;
+        },
+    });
+};
+
+export const useMarkNotificationRead = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (notificationId: string) => {
+            const response = await api.put(`/notifications/${notificationId}/read`);
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        },
+    });
+};
+
+export const useMarkAllNotificationsRead = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async () => {
+            const response = await api.put('/notifications/read-all');
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
         },
     });
 };

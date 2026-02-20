@@ -14,7 +14,7 @@ interface ChatPanelProps {
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, projectName, isOpen, onClose }) => {
-    const { messages, onlineUsers, typingUsers, isConnected, isLoading, sendMessage, sendTyping } = useChat(projectId);
+    const { messages, onlineUsers, typingUsers, isConnected, isLoading, sendMessage, sendTyping, uploadFile } = useChat(projectId);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom when new messages arrive
@@ -102,6 +102,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, projectName, isOpen, o
                 {/* Input */}
                 <ChatInput
                     onSendMessage={sendMessage}
+                    onUploadFile={uploadFile}
                     onTyping={sendTyping}
                     disabled={!isConnected}
                 />
