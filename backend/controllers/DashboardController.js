@@ -6,7 +6,7 @@ const Expense = require('../models/Expense');
 // @desc    Get dashboard stats
 // @route   GET /api/dashboard/stats
 // @access  Private
-const getStats = async(req, res) => {
+const getStats = async (req, res) => {
   try {
     const projects = await Project.find();
     const tasks = await Task.find();
@@ -45,7 +45,7 @@ const getStats = async(req, res) => {
     res.json({
       totalProjects,
       completedTasks: `${completedTasks}/${totalTasks}`,
-      totalBudget: `$${totalBudget.toLocaleString()}`,
+      totalBudget: `₹${totalBudget.toLocaleString('en-IN')}`,
       overdueTasks,
       activeProjects,
       recentActivity,
