@@ -38,20 +38,27 @@ echo -e "${YELLOW}An IP address (like $DETECTED_IP) cannot be used for a standar
 read -p "Enter your Domain Name (leave blank to use IP $DETECTED_IP over HTTP): " DOMAIN_INPUT
 
 if [ -z "$DOMAIN_INPUT" ]; then
-    export DOMAIN=$DETECTED_IP
-    export PROTOCOL="http"
+    DOMAIN=$DETECTED_IP
+    PROTOCOL="http"
     SSL_ENABLED=false
     echo -e "${YELLOW}Proceeding with IP address $DOMAIN (HTTP only).${NC}"
 else
-    export DOMAIN=$DOMAIN_INPUT
-    export PROTOCOL="https"
+    DOMAIN=$DOMAIN_INPUT
+    PROTOCOL="https"
     SSL_ENABLED=true
     echo -e "${GREEN}Proceeding with domain $DOMAIN (HTTPS).${NC}"
 fi
 
-# 4. Interactive .env Setup
+# 4. Create root .env for Docker Compose
+echo -e "${GREEN}4. Creating root .env file...${NC}"
+cat <<EOF > .env
+DOMAIN=$DOMAIN
+PROTOCOL=$PROTOCOL
+EOF
+
+# 5. Interactive backend/.env Setup
 if [ ! -f "backend/.env" ]; then
-    echo -e "${GREEN}4. Setting up backend/.env...${NC}"
+    echo -e "${GREEN}5. Setting up backend/.env...${NC}"
     if [ -f "backend/.env.example" ]; then
         cp backend/.env.example backend/.env
     else
@@ -91,10 +98,10 @@ if [ ! -f "backend/.env" ]; then
     echo -e "${GREEN}.env configuration complete.${NC}"
 fi
 
-# 5. Nginx Configuration
-echo -e "${GREEN}5. Setting up Nginx...${NC}"
+# 6. Nginx Configuration
+echo -e "${GREEN}6. Setting up Nginx...${NC}"
 mkdir -p nginx
-mkdir -p certbot/www certbot/conf
+mkdir -p certbot/www certbot/conf certbot/logs
 
 if [ "$SSL_ENABLED" = true ]; then
     # Create temporary Nginx config for Certbot challenge
@@ -108,18 +115,24 @@ server {
 }
 EOF
     # Start Nginx temporarily to handle challenge
-    sudo -E docker compose up -d nginx
+    sudo docker compose up -d nginx
 
-    # Request Certificate
+    # Request Certificate using local directories
     echo -e "${GREEN}Requesting SSL certificate for $DOMAIN...${NC}"
     WEBROOT_PATH="$(pwd)/certbot/www"
-    # Use a dummy email or prompt for one
+    CONFIG_PATH="$(pwd)/certbot/conf"
+    LOGS_PATH="$(pwd)/certbot/logs"
+    
     read -p "Enter email for SSL expiration notices (Default: admin@$DOMAIN): " SSL_EMAIL
     SSL_EMAIL=${SSL_EMAIL:-"admin@$DOMAIN"}
     
-    sudo certbot certonly --webroot -w "$WEBROOT_PATH" -d "$DOMAIN" --email "$SSL_EMAIL" --agree-tos --no-eff-email --non-interactive
+    sudo certbot certonly --webroot -w "$WEBROOT_PATH" \
+        --config-dir "$CONFIG_PATH" \
+        --logs-dir "$LOGS_PATH" \
+        --work-dir "$LOGS_PATH" \
+        -d "$DOMAIN" --email "$SSL_EMAIL" --agree-tos --no-eff-email --non-interactive
 
-    # Create full Nginx SSL config
+    # Create full Nginx SSL config from template
     if [ -f "nginx/nginx.conf.template" ]; then
         cp nginx/nginx.conf.template nginx/nginx.conf
         sed -i "s/\${DOMAIN}/$DOMAIN/g" nginx/nginx.conf
@@ -181,10 +194,10 @@ server {
 EOF
 fi
 
-# 6. Final Start
-echo -e "${GREEN}6. Starting all services with final configuration...${NC}"
+# 7. Final Start
+echo -e "${GREEN}7. Starting all services with final configuration...${NC}"
 # Use --force-recreate for nginx to ensure it picks up the new config file
-if ! sudo -E docker compose up -d --build --force-recreate nginx; then
+if ! sudo docker compose up -d --build --force-recreate nginx; then
     echo -e "${RED}Error: Deployment failed.${NC}"
     exit 1
 fi
