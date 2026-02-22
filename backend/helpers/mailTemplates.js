@@ -53,4 +53,20 @@ const getTaskStatusUpdateTemplate = (task, oldStatus, newStatus, updater) => {
   });
 };
 
-module.exports = { getBaseTemplate, getTaskStatusUpdateTemplate };
+const getOverdueTaskTemplate = (task) => {
+  return getBaseTemplate('Task Overdue Alert', {
+    body: `
+      <h2 style="color: #dc2626;">Task Overdue Alert</h2>
+      <p>Hello,</p>
+      <p>This is a reminder that the task <strong>"${task.title}"</strong> is now overdue.</p>
+      <div style="margin: 20px 0; padding: 15px; background-color: #fef2f2; border-radius: 8px; border: 1px solid #fee2e2; text-align: left;">
+        <p style="margin: 5px 0;"><strong>Due Date:</strong> <span style="color: #dc2626; font-weight: bold;">${new Date(task.dueDate).toLocaleDateString()}</span></p>
+        <p style="margin: 5px 0;"><strong>Status:</strong> <span style="text-transform: capitalize;">${task.status}</span></p>
+      </div>
+      <p style="color: #6b7280; font-size: 14px;">Project: ${task.project.name || 'N/A'}</p>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/tasks?project=${task.project._id || task.project}" class="btn" style="background-color: #dc2626;">Resolve Now</a>
+    `
+  });
+};
+
+module.exports = { getBaseTemplate, getTaskStatusUpdateTemplate, getOverdueTaskTemplate };

@@ -5,19 +5,28 @@ const Notification = require('../models/Notification');
 const { Roles, ApprovalStatus } = require('../config/global');
 const sendEmail = require('../helpers/mail');
 const { getTaskStatusUpdateTemplate } = require('../helpers/mailTemplates');
+const { logActivity } = require('../helpers/activity');
 
-// @desc    Create a new task
-// @route   POST /api/tasks
-// @access  Private (Super Admin Only per user request)
-const createTask = async(req, res) => {
+const createTask = async (req, res) => {
   try {
     const { title, description, project: projectId, assignedTo, priority, startDate, dueDate } = req.body;
     const userId = req.user._id;
     const userRole = req.user.role;
 
-    // RBAC: Only Super Admin can create tasks per latest user request
-    if (userRole !== Roles.SUPER_ADMIN) {
-      return res.status(403).json({ message: 'Only Super Admin can create tasks' });
+    // RBAC: Outsource Team cannot create tasks
+    if (userRole === Roles.OUTSOURCED_TEAM) {
+      return res.status(403).json({ message: 'Outsource Team is not authorized to create tasks' });
+    }
+
+    // Role validation for assignment (for INHOUSE_TEAM)
+    if (assignedTo && userRole === Roles.INHOUSE_TEAM) {
+      const targetUser = await User.findById(assignedTo);
+      if (!targetUser) return res.status(404).json({ message: 'Assigned user not found' });
+
+      const restrictedRoles = [Roles.OUTSOURCED_TEAM, Roles.FINANCE_TEAM];
+      if (restrictedRoles.includes(targetUser.role)) {
+        return res.status(403).json({ message: 'INHOUSE_TEAM can only assign tasks to Team members, PMs, or Admins.' });
+      }
     }
 
     const task = new Task({
@@ -29,9 +38,11 @@ const createTask = async(req, res) => {
       startDate,
       dueDate,
       createdBy: userId,
-      approvalStatus: ApprovalStatus.APPROVED, // Auto-approve for Super Admin
-      approvedBy: userId,
-      approvedAt: new Date(),
+      // Every task needs Super Admin Approval (except maybe if Super Admin creates it?)
+      // User said "every task need Super Amdin Approval", I'll auto-approve Super Admin's own tasks for sanity unless specifically told otherwise.
+      approvalStatus: userRole === Roles.SUPER_ADMIN ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING,
+      approvedBy: userRole === Roles.SUPER_ADMIN ? userId : undefined,
+      approvedAt: userRole === Roles.SUPER_ADMIN ? new Date() : undefined,
       activityLog: [{
         user: userId,
         action: 'Created the task'
@@ -40,6 +51,18 @@ const createTask = async(req, res) => {
 
     const createdTask = await task.save();
     await createdTask.populate('createdBy', 'name email role');
+    if (assignedTo) await createdTask.populate('assignedTo', 'name email role');
+
+    // Log Activity
+    await logActivity({
+      user: userId,
+      project: projectId,
+      task: createdTask._id,
+      action: 'created',
+      entityType: 'TASK',
+      entityName: title,
+      description: `Task "${title}" was created by ${req.user.name} and is ${task.approvalStatus}`
+    });
 
     res.status(201).json(createdTask);
   } catch (error) {
@@ -50,7 +73,7 @@ const createTask = async(req, res) => {
 // @desc    Update task status
 // @route   PUT /api/tasks/:id/status
 // @access  Private (Assigned User, PM, Admin)
-const updateTaskStatus = async(req, res) => {
+const updateTaskStatus = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
       .populate('project')
@@ -66,6 +89,17 @@ const updateTaskStatus = async(req, res) => {
       });
 
       const updatedTask = await task.save();
+
+      // Log Activity
+      await logActivity({
+        user: req.user._id,
+        project: task.project?._id,
+        task: task._id,
+        action: 'updated_status',
+        entityType: 'TASK',
+        entityName: task.title,
+        description: `Task status changed from ${oldStatus} to ${task.status}`
+      });
 
       // Notifications logic
       try {
@@ -88,7 +122,7 @@ const updateTaskStatus = async(req, res) => {
         // Remove current user from recipients
         recipients.delete(req.user._id.toString());
 
-        const recipientUsers = await User.find({ _id: { $in: Array.from(recipients) }});
+        const recipientUsers = await User.find({ _id: { $in: Array.from(recipients) } });
 
         const notifications = recipientUsers.map(recipient => ({
           recipient: recipient._id,
@@ -115,7 +149,7 @@ const updateTaskStatus = async(req, res) => {
           });
 
           // Email Notifications
-          recipientUsers.forEach(async(recipient) => {
+          recipientUsers.forEach(async (recipient) => {
             try {
               if (recipient.email) {
                 await sendEmail({
@@ -145,7 +179,7 @@ const updateTaskStatus = async(req, res) => {
 // @desc    Get all tasks for a project
 // @route   GET /api/tasks/project/:projectId
 // @access  Private
-const getProjectTasks = async(req, res) => {
+const getProjectTasks = async (req, res) => {
   try {
     const userId = req.user._id;
     const userRole = req.user.role;
@@ -154,27 +188,18 @@ const getProjectTasks = async(req, res) => {
     let query = { project: projectId };
 
     // Filter based on user role
-    if (userRole === Roles.SUPER_ADMIN) {
-      // Admins see all tasks
-    } else if (userRole === Roles.PROJECT_MANAGER) {
-      // PMs see tasks they created OR approved tasks
+    if (userRole === Roles.SUPER_ADMIN || userRole === Roles.PROJECT_MANAGER) {
+      // Admins and PMs see all tasks in the project
+    } else {
+      // Team members see approved tasks OR tasks they created OR tasks assigned to them
       query = {
         project: projectId,
         $or: [
+          { approvalStatus: ApprovalStatus.APPROVED },
           { createdBy: userId },
-          { approvalStatus: ApprovalStatus.APPROVED }
+          { assignedTo: userId }
         ]
       };
-    } else if (userRole === Roles.INHOUSE_TEAM || userRole === Roles.OUTSOURCED_TEAM) {
-      // Team members only see tasks assigned to them
-      query = {
-        project: projectId,
-        assignedTo: userId,
-        approvalStatus: ApprovalStatus.APPROVED
-      };
-    } else {
-      // Other roles (e.g., FINANCE) see approved tasks
-      query.approvalStatus = ApprovalStatus.APPROVED;
     }
 
     const tasks = await Task.find(query)
@@ -192,7 +217,7 @@ const getProjectTasks = async(req, res) => {
 // @desc    Get all tasks across all projects (Admin/PM only)
 // @route   GET /api/tasks/all
 // @access  Private (SUPER_ADMIN, PROJECT_MANAGER)
-const getAdminAllTasks = async(req, res) => {
+const getAdminAllTasks = async (req, res) => {
   try {
     const userRole = req.user.role;
     const userId = req.user._id;
@@ -208,7 +233,7 @@ const getAdminAllTasks = async(req, res) => {
 
       query = {
         $or: [
-          { project: { $in: projectIds }},
+          { project: { $in: projectIds } },
           { createdBy: userId }
         ]
       };
@@ -231,7 +256,7 @@ const getAdminAllTasks = async(req, res) => {
 // @desc    Approve a pending task
 // @route   PUT /api/tasks/:id/approve
 // @access  Private (SUPER_ADMIN only)
-const approveTask = async(req, res) => {
+const approveTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
 
@@ -265,7 +290,7 @@ const approveTask = async(req, res) => {
 // @desc    Reject a pending task
 // @route   PUT /api/tasks/:id/reject
 // @access  Private (SUPER_ADMIN only)
-const rejectTask = async(req, res) => {
+const rejectTask = async (req, res) => {
   try {
     const { reason } = req.body;
     const task = await Task.findById(req.params.id);
@@ -300,7 +325,7 @@ const rejectTask = async(req, res) => {
 // @desc    Get all pending tasks
 // @route   GET /api/tasks/pending
 // @access  Private (SUPER_ADMIN only)
-const getPendingTasks = async(req, res) => {
+const getPendingTasks = async (req, res) => {
   try {
     const tasks = await Task.find({ approvalStatus: ApprovalStatus.PENDING })
       .populate('createdBy', 'name email role')
@@ -314,6 +339,38 @@ const getPendingTasks = async(req, res) => {
   }
 };
 
+// @desc    Delete a task
+// @route   DELETE /api/tasks/:id
+// @access  Private (Admin/Project Manager)
+const deleteTask = async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    const taskTitle = task.title;
+    const projectId = task.project;
+
+    await task.deleteOne();
+
+    // Log Activity
+    await logActivity({
+      user: req.user.id,
+      project: projectId,
+      action: 'deleted',
+      entityType: 'TASK',
+      entityName: taskTitle,
+      description: `Task "${taskTitle}" was deleted by ${req.user.name}`
+    });
+
+    res.json({ message: 'Task removed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask,
   updateTaskStatus,
@@ -321,5 +378,6 @@ module.exports = {
   getAdminAllTasks,
   approveTask,
   rejectTask,
-  getPendingTasks
+  getPendingTasks,
+  deleteTask
 };

@@ -1,9 +1,11 @@
-const projectTransformer = (project, tasks = []) => {
+const { Roles } = require('../config/global');
+
+const projectTransformer = (project, tasks = [], role = null) => {
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  return {
+  const transformed = {
     id: project._id,
     name: project.name,
     clientName: project.clientName,
@@ -21,21 +23,36 @@ const projectTransformer = (project, tasks = []) => {
       progress
     }
   };
+
+  // Only Super Admin can see budget
+  if (role !== Roles.SUPER_ADMIN) {
+    transformed.budget = null;
+  }
+
+  return transformed;
 };
 
-const projectListTransformer = (projects) => {
-  return projects.map(p => ({
-    id: p._id,
-    name: p.name,
-    clientName: p.clientName,
-    status: p.status,
-    manager: p.manager ? { id: p.manager._id, name: p.manager.name } : null,
-    description: p.description,
-    startDate: p.startDate,
-    budget: p.budget,
-    collaborators: p.collaborators ? p.collaborators.map(c => ({ id: c._id, name: c.name })) : [],
-    endDate: p.endDate
-  }));
+const projectListTransformer = (projects, role = null) => {
+  return projects.map(p => {
+    const transformed = {
+      id: p._id,
+      name: p.name,
+      clientName: p.clientName,
+      status: p.status,
+      manager: p.manager ? { id: p.manager._id, name: p.manager.name } : null,
+      description: p.description,
+      startDate: p.startDate,
+      budget: p.budget,
+      collaborators: p.collaborators ? p.collaborators.map(c => ({ id: c._id, name: c.name })) : [],
+      endDate: p.endDate
+    };
+
+    if (role !== Roles.SUPER_ADMIN) {
+      transformed.budget = null;
+    }
+
+    return transformed;
+  });
 };
 
 module.exports = {

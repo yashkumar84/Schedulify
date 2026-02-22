@@ -21,6 +21,7 @@ router.use('/chat', chatRoutes);
 router.use('/users', userRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/upload', require('./upload'));
+router.use('/activities', require('./activity'));
 router.get('/dashboard/stats', authenticate, getStats);
 
 module.exports = router;

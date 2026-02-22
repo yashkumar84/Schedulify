@@ -1,7 +1,8 @@
 const Project = require('../models/Project');
 const Task = require('../models/Task');
 const Expense = require('../models/Expense');
-// const { Roles } = require('../config/global');
+const Activity = require('../models/Activity');
+const { Roles } = require('../config/global');
 
 // @desc    Get dashboard stats
 // @route   GET /api/dashboard/stats
@@ -9,7 +10,6 @@ const Expense = require('../models/Expense');
 const getStats = async (req, res) => {
   try {
     const { id: userId, role: userRole } = req.user;
-    const { Roles } = require('../config/global');
 
     let projects = [];
     let tasks = [];
@@ -19,16 +19,24 @@ const getStats = async (req, res) => {
       projects = await Project.find();
       tasks = await Task.find();
       expenses = await Expense.find({ status: 'approved' });
-    } else if (userRole === Roles.PROJECT_MANAGER) {
-      projects = await Project.find({ manager: userId });
-      const projectIds = projects.map(p => p._id);
-      tasks = await Task.find({ project: { $in: projectIds }});
-      expenses = await Expense.find({ project: { $in: projectIds }, status: 'approved' });
     } else {
-      // INHOUSE_TEAM, OUTSOURCED_TEAM, FINANCE_TEAM
-      tasks = await Task.find({ assignedTo: userId });
-      const projectIds = [...new Set(tasks.map(t => t.project.toString()))];
-      projects = await Project.find({ _id: { $in: projectIds }});
+      // Find all projects where user is manager or collaborator
+      projects = await Project.find({
+        $or: [
+          { manager: userId },
+          { collaborators: userId }
+        ]
+      });
+      const projectIds = projects.map(p => p._id);
+
+      // Tasks: Show all tasks for these projects, plus any tasks specifically assigned to the user (in case they aren't on the project?)
+      // Usually task is within project, so $in projectIds covers most.
+      tasks = await Task.find({
+        $or: [
+          { project: { $in: projectIds } },
+          { assignedTo: userId }
+        ]
+      });
 
       if (userRole === Roles.FINANCE_TEAM) {
         expenses = await Expense.find({ status: 'approved' });
@@ -52,38 +60,54 @@ const getStats = async (req, res) => {
       const progress = projectTasks.length > 0 ? Math.round((completed / projectTasks.length) * 100) : 0;
       const colors = ['bg-primary-500', 'bg-emerald-500', 'bg-amber-500'];
       return {
+        id: p._id,
         name: p.name,
         progress,
         color: colors[idx % 3]
       };
     });
 
-    // Mock recent activity for now or fetch from activity logs
-    // Filter activity by user's relevant objects
-    const recentActivity = tasks.slice(0, 5).map(t => ({
-      userName: 'System',
-      action: 'updated task',
-      target: t.title,
-      time: 'Just now',
-      project: projects.find(p => p._id.toString() === t.project.toString())?.name || 'Unknown'
+    // Fetch real activities
+    let activityQuery = {};
+    if (userRole !== Roles.SUPER_ADMIN) {
+      const relevantProjectIds = projects.map(p => p._id);
+      activityQuery = { project: { $in: relevantProjectIds } };
+    }
+
+    const activities = await Activity.find(activityQuery)
+      .populate('user', 'name')
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    const recentActivity = activities.map(a => ({
+      userName: a.user?.name || 'Unknown',
+      action: a.action,
+      target: a.entityName,
+      time: a.createdAt,
+      project: a.project?.name || 'System'
     }));
 
-    res.json({
+    const response = {
       totalProjects,
       completedTasks: `${completedTasks}/${totalTasks}`,
-      totalBudget: `₹${totalBudget.toLocaleString('en-IN')}`,
+      totalBudget: userRole === Roles.SUPER_ADMIN ? `₹${totalBudget.toLocaleString('en-IN')}` : null,
       overdueTasks,
       activeProjects,
       recentActivity,
-      finance: {
+      finance: userRole === Roles.SUPER_ADMIN ? {
         totalBudget,
         totalSpent,
         remainingBudget: totalBudget - totalSpent,
-        expenseApprovalStatus: userRole === Roles.SUPER_ADMIN || userRole === Roles.FINANCE_TEAM ? 'Pending reviews available' : 'Restricted'
+        expenseApprovalStatus: 'Pending reviews available'
+      } : {
+        totalSpent,
+        expenseApprovalStatus: userRole === Roles.FINANCE_TEAM ? 'Pending reviews available' : 'Restricted'
       },
       progressPercentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
       userRole // Pass role for frontend customization
-    });
+    };
+
+    res.json(response);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Briefcase,
     CheckSquare,
@@ -9,9 +10,10 @@ import {
     Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useDashboardStats } from '../../hooks/useApi';
+import { useDashboardStats, useActivities } from '../../hooks/useApi';
 import { useAuthStore } from '../../store/authStore';
 import PendingTasksPanel from '../tasks/PendingTasksPanel';
+import ActivityFeed from '../../components/ActivityFeed';
 
 const StatCard: React.FC<{
     title: string;
@@ -44,7 +46,9 @@ const StatCard: React.FC<{
 );
 
 const DashboardPage: React.FC = () => {
+    const navigate = useNavigate();
     const { data: statsData, isLoading } = useDashboardStats();
+    const { data: activities, isLoading: activitiesLoading } = useActivities();
     const { user } = useAuthStore();
 
     if (isLoading) {
@@ -56,10 +60,43 @@ const DashboardPage: React.FC = () => {
     }
 
     const stats = [
+<<<<<<<< < Temporary merge branch 1
         { title: 'Total Projects', value: statsData?.totalProjects || 0, icon: Briefcase, color: 'bg-primary-500', trend: '+0%', delay: 0.1 },
         { title: 'Completed Tasks', value: statsData?.completedTasks || '0/0', icon: CheckSquare, color: 'bg-emerald-500', trend: '+0%', delay: 0.2 },
-        { title: 'Budget Total', value: statsData?.totalBudget || '$0', icon: TrendingUp, color: 'bg-amber-500', delay: 0.3 },
+        { title: 'Budget Total', value: statsData?.totalBudget || '₹0', icon: TrendingUp, color: 'bg-amber-500', delay: 0.3 },
         { title: 'Overdue Tasks', value: statsData?.overdueTasks || 0, icon: AlertCircle, color: 'bg-red-500', delay: 0.4 },
+=========
+        {
+            title: statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'PROJECT_MANAGER' ? 'Total Projects' : 'Active Projects',
+            value: statsData?.totalProjects || 0,
+            icon: Briefcase,
+            color: 'bg-primary-500',
+            trend: '+0%',
+            delay: 0.1
+        },
+        {
+            title: statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'PROJECT_MANAGER' ? 'Completed Tasks' : 'My Completed Tasks',
+            value: statsData?.completedTasks || '0/0',
+            icon: CheckSquare,
+            color: 'bg-emerald-500',
+            trend: '+0%',
+            delay: 0.2
+        },
+        ...(statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'FINANCE_TEAM' ? [{
+            title: 'Budget Total',
+            value: statsData?.totalBudget || '$0',
+            icon: TrendingUp,
+            color: 'bg-amber-500',
+            delay: 0.3
+        }] : []),
+        {
+            title: 'Overdue Tasks',
+            value: statsData?.overdueTasks || 0,
+            icon: AlertCircle,
+            color: 'bg-red-500',
+            delay: 0.4
+        },
+>>>>>>>>> Temporary merge branch 2
     ];
 
     const welcomeMessage = statsData?.userRole === 'SUPER_ADMIN'
@@ -88,36 +125,15 @@ const DashboardPage: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Activity */}
-                <div className="lg:col-span-2 bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+                <div className="lg:col-span-2 bg-card rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col">
                     <div className="p-6 border-b border-border flex items-center justify-between">
                         <h2 className="font-bold text-lg">Recent Activity</h2>
                         <button className="text-primary-600 text-sm font-semibold hover:underline">View All</button>
                     </div>
-                    <div className="divide-y divide-border">
-                        {(!statsData?.recentActivity || statsData.recentActivity.length === 0) ? (
-                            <div className="p-20 text-center text-secondary-500 font-medium">
-                                <Clock className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                No recent activity found.
-                            </div>
-                        ) : (
-                            statsData.recentActivity.map((item: any, idx: number) => (
-                                <div key={idx} className="p-4 sm:p-6 flex items-start gap-4 hover:bg-secondary-50 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-secondary-100 flex items-center justify-center flex-shrink-0">
-                                        <Clock size={18} className="text-secondary-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium">
-                                            <span className="text-foreground">{item.userName}</span> {item.action}
-                                            <span className="text-primary-600 font-semibold cursor-pointer ml-1">{item.target}</span>
-                                        </p>
-                                        <p className="text-xs text-secondary-500 mt-1">{item.time} • {item.project}</p>
-                                    </div>
-                                </div>
-                            ))
-                        )}
+                    <div className="p-6 overflow-y-auto max-h-[500px] hide-scrollbar">
+                        <ActivityFeed activities={activities} isLoading={activitiesLoading} />
                     </div>
                 </div>
-
                 {/* Project Progress */}
                 <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
                     <h2 className="font-bold text-lg mb-6">Active Projects</h2>
@@ -128,9 +144,9 @@ const DashboardPage: React.FC = () => {
                             </div>
                         ) : (
                             statsData.activeProjects.map((project: any, index: number) => (
-                                <div key={index}>
+                                <div key={index} className="cursor-pointer group" onClick={() => navigate(`/projects/${project._id || project.id}`)}>
                                     <div className="flex justify-between text-sm mb-2">
-                                        <span className="font-medium text-secondary-900">{project.name}</span>
+                                        <span className="font-medium text-secondary-900 group-hover:text-primary-600 transition-colors">{project.name}</span>
                                         <span className="text-secondary-500">{project.progress}%</span>
                                     </div>
                                     <div className="h-2 w-full bg-secondary-100 rounded-full overflow-hidden">
@@ -145,7 +161,10 @@ const DashboardPage: React.FC = () => {
                             ))
                         )}
                     </div>
-                    <button className="w-full mt-8 py-3 rounded-xl border border-primary-100 text-primary-600 font-semibold hover:bg-primary-50 transition-colors">
+                    <button
+                        onClick={() => navigate('/projects')}
+                        className="w-full mt-8 py-3 rounded-xl border border-primary-100 text-primary-600 font-semibold hover:bg-primary-50 transition-colors"
+                    >
                         View Project Details
                     </button>
                 </div>

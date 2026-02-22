@@ -55,9 +55,9 @@ export const useUpdateProject = () => {
             const response = await api.put(`/projects/${projectId}`, data);
             return response.data;
         },
-        onSuccess: () => {
+        onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['projects'] });
-            queryClient.invalidateQueries({ queryKey: ['project'] });
+            queryClient.invalidateQueries({ queryKey: ['project', variables.projectId] });
         },
     });
 };
@@ -405,6 +405,18 @@ export const useMarkAllNotificationsRead = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        },
+    });
+};
+
+export const useActivities = (projectId?: string) => {
+    return useQuery({
+        queryKey: ['activities', projectId],
+        queryFn: async () => {
+            const response = await api.get('/activities', {
+                params: { projectId }
+            });
+            return response.data;
         },
     });
 };

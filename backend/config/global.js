@@ -22,7 +22,8 @@ const TaskStatus = {
 const TaskPriority = {
   LOW: 'low',
   MEDIUM: 'medium',
-  HIGH: 'high'
+  HIGH: 'high',
+  URGENT: 'urgent'
 };
 
 const ApprovalStatus = {

@@ -7,7 +7,8 @@ const {
   getAdminAllTasks,
   approveTask,
   rejectTask,
-  getPendingTasks
+  getPendingTasks,
+  deleteTask
 } = require('../controllers/TaskController');
 const { authenticate, authorize } = require('../helpers/auth');
 const { Roles } = require('../config/global');
@@ -15,6 +16,7 @@ const { validate, taskSchema } = require('../validations');
 
 router.post('/', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), validate(taskSchema), createTask);
 router.put('/:id/status', authenticate, updateTaskStatus);
+router.delete('/:id', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), deleteTask);
 router.get('/project/:projectId', authenticate, getProjectTasks);
 router.get('/all', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), getAdminAllTasks);
 
