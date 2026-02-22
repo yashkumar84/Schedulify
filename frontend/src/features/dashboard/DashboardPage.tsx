@@ -56,36 +56,10 @@ const DashboardPage: React.FC = () => {
     }
 
     const stats = [
-        {
-            title: statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'PROJECT_MANAGER' ? 'Total Projects' : 'Active Projects',
-            value: statsData?.totalProjects || 0,
-            icon: Briefcase,
-            color: 'bg-primary-500',
-            trend: '+0%',
-            delay: 0.1
-        },
-        {
-            title: statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'PROJECT_MANAGER' ? 'Completed Tasks' : 'My Completed Tasks',
-            value: statsData?.completedTasks || '0/0',
-            icon: CheckSquare,
-            color: 'bg-emerald-500',
-            trend: '+0%',
-            delay: 0.2
-        },
-        ...(statsData?.userRole === 'SUPER_ADMIN' || statsData?.userRole === 'FINANCE_TEAM' ? [{
-            title: 'Budget Total',
-            value: statsData?.totalBudget || '$0',
-            icon: TrendingUp,
-            color: 'bg-amber-500',
-            delay: 0.3
-        }] : []),
-        {
-            title: 'Overdue Tasks',
-            value: statsData?.overdueTasks || 0,
-            icon: AlertCircle,
-            color: 'bg-red-500',
-            delay: 0.4
-        },
+        { title: 'Total Projects', value: statsData?.totalProjects || 0, icon: Briefcase, color: 'bg-primary-500', trend: '+0%', delay: 0.1 },
+        { title: 'Completed Tasks', value: statsData?.completedTasks || '0/0', icon: CheckSquare, color: 'bg-emerald-500', trend: '+0%', delay: 0.2 },
+        { title: 'Budget Total', value: statsData?.totalBudget || '$0', icon: TrendingUp, color: 'bg-amber-500', delay: 0.3 },
+        { title: 'Overdue Tasks', value: statsData?.overdueTasks || 0, icon: AlertCircle, color: 'bg-red-500', delay: 0.4 },
     ];
 
     const welcomeMessage = statsData?.userRole === 'SUPER_ADMIN'

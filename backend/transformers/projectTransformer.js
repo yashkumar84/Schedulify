@@ -30,6 +30,10 @@ const projectListTransformer = (projects) => {
     clientName: p.clientName,
     status: p.status,
     manager: p.manager ? { id: p.manager._id, name: p.manager.name } : null,
+    description: p.description,
+    startDate: p.startDate,
+    budget: p.budget,
+    collaborators: p.collaborators ? p.collaborators.map(c => ({ id: c._id, name: c.name })) : [],
     endDate: p.endDate
   }));
 };

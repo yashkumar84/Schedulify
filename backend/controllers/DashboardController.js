@@ -6,7 +6,7 @@ const Expense = require('../models/Expense');
 // @desc    Get dashboard stats
 // @route   GET /api/dashboard/stats
 // @access  Private
-const getStats = async(req, res) => {
+const getStats = async (req, res) => {
   try {
     const { id: userId, role: userRole } = req.user;
     const { Roles } = require('../config/global');
@@ -71,7 +71,7 @@ const getStats = async(req, res) => {
     res.json({
       totalProjects,
       completedTasks: `${completedTasks}/${totalTasks}`,
-      totalBudget: `$${totalBudget.toLocaleString()}`,
+      totalBudget: `₹${totalBudget.toLocaleString('en-IN')}`,
       overdueTasks,
       activeProjects,
       recentActivity,
