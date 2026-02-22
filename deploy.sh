@@ -1,13 +1,10 @@
 #!/bin/bash
 
-# Remote Server Deployment Script (Cloud Optimized)
-# This script automates the setup, git configuration, and deployment of the Schedulify project.
+# Remote Server Deployment Script (Nginx + SSL Optimized - Manual Git Workflow)
+# This script automates the setup, SSL configuration, and deployment.
+# Note: This script assumes you have already pulled the code to your server.
 
 set -e
-
-# Configuration
-PROJECT_DIR="TaskiFy"
-REPO_NAME="yashkumar84/Schedulify"
 
 # Colors for output
 RED='\033[0;31m'
@@ -15,12 +12,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}Starting Remote Deployment Setup...${NC}"
+echo -e "${YELLOW}Starting Remote Deployment Setup with Nginx and SSL...${NC}"
 
 # 1. Update and Install Dependencies
 echo -e "${GREEN}1. Updating system and installing dependencies...${NC}"
 sudo apt-get update
-sudo apt-get install -y git curl
+sudo apt-get install -y curl certbot
 
 # 2. Install Docker and Docker Compose
 if ! command -v docker &> /dev/null; then
@@ -33,59 +30,47 @@ else
     echo -e "${GREEN}2. Docker already installed.${NC}"
 fi
 
-# 3. Git Identity Configuration
-echo -e "${GREEN}3. Configuring Git identity...${NC}"
-read -p "Enter Git User Name (default: Yash): " GIT_USER_NAME
-GIT_USER_NAME=${GIT_USER_NAME:-"Yash"}
-git config --global user.name "$GIT_USER_NAME"
+# 3. Domain and SSL Configuration (CRITICAL)
+echo -e "${GREEN}3. Configuring Domain and SSL...${NC}"
+DETECTED_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
+echo -e "${YELLOW}Note: SSL certificates (Let's Encrypt) require a domain name (e.g., example.com).${NC}"
+echo -e "${YELLOW}An IP address (like $DETECTED_IP) cannot be used for a standard SSL certificate.${NC}"
+read -p "Enter your Domain Name (leave blank to use IP $DETECTED_IP over HTTP): " DOMAIN_INPUT
 
-read -p "Enter Git User Email (default: yashtyagi395@gmail.com): " GIT_USER_EMAIL
-GIT_USER_EMAIL=${GIT_USER_EMAIL:-"yashtyagi395@gmail.com"}
-git config --global user.email "$GIT_USER_EMAIL"
-
-# 4. Handle Repository Cloning
-if [ ! -d "$PROJECT_DIR" ]; then
-    echo -e "${YELLOW}4. Repository Setup...${NC}"
-    echo -e "Is this a private repository? (y/n)"
-    read -r IS_PRIVATE
-    
-    if [[ "$IS_PRIVATE" =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}Please visit: https://github.com/settings/tokens to generate a Personal Access Token (PAT).${NC}"
-        echo -e "${RED}Ensure you give it 'repo' permissions.${NC}"
-        echo -n "Enter your GitHub PAT: "
-        read -rs GITHUB_TOKEN
-        echo ""
-        REPO_URL="https://${GITHUB_TOKEN}@github.com/${REPO_NAME}.git"
-    else
-        REPO_URL="https://github.com/${REPO_NAME}.git"
-    fi
-
-    echo -e "${GREEN}Cloning repository...${NC}"
-    git clone "$REPO_URL" "$PROJECT_DIR"
-    cd "$PROJECT_DIR"
+if [ -z "$DOMAIN_INPUT" ]; then
+    export DOMAIN=$DETECTED_IP
+    export PROTOCOL="http"
+    SSL_ENABLED=false
+    echo -e "${YELLOW}Proceeding with IP address $DOMAIN (HTTP only).${NC}"
 else
-    echo -e "${YELLOW}4. Project directory exists. Pulling latest changes...${NC}"
-    cd "$PROJECT_DIR"
-    git pull
+    export DOMAIN=$DOMAIN_INPUT
+    export PROTOCOL="https"
+    SSL_ENABLED=true
+    echo -e "${GREEN}Proceeding with domain $DOMAIN (HTTPS).${NC}"
 fi
 
-# 5. Server IP Configuration (CRITICAL for Cloud)
-echo -e "${GREEN}5. Configuring Server IP for Frontend...${NC}"
-# Automatically detect public IP as a hint
-DETECTED_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
-read -p "Enter your Server/EC2 Public IP (Default: $DETECTED_IP): " SERVER_IP
-SERVER_IP=${SERVER_IP:-$DETECTED_IP}
-
-# 6. Interactive .env Setup
+# 4. Interactive .env Setup
 if [ ! -f "backend/.env" ]; then
-    echo -e "${GREEN}6. Setting up backend/.env...${NC}"
-    cp backend/.env.example backend/.env
+    echo -e "${GREEN}4. Setting up backend/.env...${NC}"
+    if [ -f "backend/.env.example" ]; then
+        cp backend/.env.example backend/.env
+    else
+        echo -e "${RED}Error: backend/.env.example not found! Creating a basic one...${NC}"
+        touch backend/.env
+    fi
+    
+    echo -e "${YELLOW}Let's configure your environment variables (Script will update placeholders):${NC}"
     
     update_env() {
         local key=$1
         local value=$2
         value=$(echo "$value" | sed 's/\//\\\//g')
-        sed -i "s/^$key=.*/$key=$value/" backend/.env
+        # Use grep to check if key exists, otherwise append
+        if grep -q "^$key=" backend/.env; then
+            sed -i "s/^$key=.*/$key=$value/" backend/.env
+        else
+            echo "$key=$value" >> backend/.env
+        fi
     }
 
     read -p "Enter MongoDB URI (default: mongodb://localhost:27017/schedulify): " MONGO_URI
@@ -103,22 +88,91 @@ if [ ! -f "backend/.env" ]; then
     [[ -n "$GMAIL_PASS" ]] && update_env "GMAIL_PASS" "$GMAIL_PASS"
     
     update_env "NODE_ENV" "production"
-    update_env "FRONTEND_URL" "http://$SERVER_IP:5173"
+    update_env "FRONTEND_URL" "$PROTOCOL://$DOMAIN"
     echo -e "${GREEN}.env configuration complete.${NC}"
 fi
 
-# 7. Start Containers
-echo -e "${GREEN}7. Starting the project with Docker Compose...${NC}"
-# Pass SERVER_IP to the environment so docker-compose can use it
-export VITE_API_URL="http://$SERVER_IP:5000/api"
+# 5. Nginx Configuration
+echo -e "${GREEN}5. Setting up Nginx...${NC}"
+mkdir -p nginx
+mkdir -p certbot/www certbot/conf
 
+if [ "$SSL_ENABLED" = true ]; then
+    # Create temporary Nginx config for Certbot challenge
+    cat <<EOF > nginx/nginx.conf
+server {
+    listen 80;
+    server_name $DOMAIN;
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+}
+EOF
+    # Start Nginx temporarily to handle challenge
+    sudo -E docker compose up -d nginx
+
+    # Request Certificate
+    echo -e "${GREEN}Requesting SSL certificate for $DOMAIN...${NC}"
+    WEBROOT_PATH="$(pwd)/certbot/www"
+    # Use dummy email if not set
+    EMAIL="admin@$DOMAIN"
+    sudo certbot certonly --webroot -w "$WEBROOT_PATH" -d "$DOMAIN" --email "$EMAIL" --agree-tos --no-eff-email --non-interactive
+
+    # Create full Nginx SSL config
+    cat <<EOF > nginx/nginx.conf
+server {
+    listen 80;
+    server_name $DOMAIN;
+    location / { return 301 https://\$host\$request_uri; }
+}
+server {
+    listen 443 ssl;
+    server_name $DOMAIN;
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    
+    location / {
+        proxy_pass http://frontend:5173;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+    location /api {
+        proxy_pass http://backend:5000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+}
+EOF
+else
+    # HTTP only config for IP
+    cat <<EOF > nginx/nginx.conf
+server {
+    listen 80;
+    server_name $DOMAIN;
+
+    # Frontend
+    location / {
+        proxy_pass http://frontend:5173;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+
+    # Backend API
+    location /api {
+        proxy_pass http://backend:5000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+}
+EOF
+fi
+
+# 6. Final Start
+echo -e "${GREEN}6. Starting all services with final configuration...${NC}"
 if ! sudo -E docker compose up -d --build; then
-    echo -e "${RED}Error: Build failed.${NC}"
+    echo -e "${RED}Error: Deployment failed.${NC}"
     exit 1
 fi
 
 echo -e "${GREEN}Deployment successful!${NC}"
-echo -e "${YELLOW}Access URLs:${NC}"
-echo -e "Frontend: http://$SERVER_IP:5173"
-echo -e "Backend: http://$SERVER_IP:5000"
-echo -e "${YELLOW}If you see 'ERR_BLOCKED_BY_CLIENT', ensure your Server IP is correct and ad-blockers are disabled for this IP.${NC}"
+echo -e "${YELLOW}Access URL: $PROTOCOL://$DOMAIN${NC}"
