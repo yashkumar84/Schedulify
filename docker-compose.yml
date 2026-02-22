@@ -24,7 +24,7 @@ services:
     build: ./frontend
     network_mode: host
     environment:
-      - VITE_API_URL=http://localhost:5000/api
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:5000/api}
     depends_on:
       - backend
     restart: always

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Remote Server Deployment Script (Final Refined Version)
+# Remote Server Deployment Script (Cloud Optimized)
 # This script automates the setup, git configuration, and deployment of the Schedulify project.
 
 set -e
@@ -43,7 +43,7 @@ read -p "Enter Git User Email (default: yashtyagi395@gmail.com): " GIT_USER_EMAI
 GIT_USER_EMAIL=${GIT_USER_EMAIL:-"yashtyagi395@gmail.com"}
 git config --global user.email "$GIT_USER_EMAIL"
 
-# 4. Handle Private Repository Cloning
+# 4. Handle Repository Cloning
 if [ ! -d "$PROJECT_DIR" ]; then
     echo -e "${YELLOW}4. Repository Setup...${NC}"
     echo -e "Is this a private repository? (y/n)"
@@ -69,17 +69,21 @@ else
     git pull
 fi
 
-# 5. Interactive .env Setup
+# 5. Server IP Configuration (CRITICAL for Cloud)
+echo -e "${GREEN}5. Configuring Server IP for Frontend...${NC}"
+# Automatically detect public IP as a hint
+DETECTED_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
+read -p "Enter your Server/EC2 Public IP (Default: $DETECTED_IP): " SERVER_IP
+SERVER_IP=${SERVER_IP:-$DETECTED_IP}
+
+# 6. Interactive .env Setup
 if [ ! -f "backend/.env" ]; then
-    echo -e "${GREEN}5. Setting up backend/.env...${NC}"
+    echo -e "${GREEN}6. Setting up backend/.env...${NC}"
     cp backend/.env.example backend/.env
-    
-    echo -e "${YELLOW}Let's configure your environment variables (Script will update placeholders):${NC}"
     
     update_env() {
         local key=$1
         local value=$2
-        # Escaping slash for sed
         value=$(echo "$value" | sed 's/\//\\\//g')
         sed -i "s/^$key=.*/$key=$value/" backend/.env
     }
@@ -99,18 +103,22 @@ if [ ! -f "backend/.env" ]; then
     [[ -n "$GMAIL_PASS" ]] && update_env "GMAIL_PASS" "$GMAIL_PASS"
     
     update_env "NODE_ENV" "production"
+    update_env "FRONTEND_URL" "http://$SERVER_IP:5173"
     echo -e "${GREEN}.env configuration complete.${NC}"
 fi
 
-# 6. Build and Start Containers
-echo -e "${GREEN}6. Starting the project with Docker Compose...${NC}"
-# Use sudo for docker commands to ensure permission on fresh setup
-if ! sudo docker compose up -d --build; then
-    echo -e "${RED}Error: Build failed. Check Docker logs.${NC}"
+# 7. Start Containers
+echo -e "${GREEN}7. Starting the project with Docker Compose...${NC}"
+# Pass SERVER_IP to the environment so docker-compose can use it
+export VITE_API_URL="http://$SERVER_IP:5000/api"
+
+if ! sudo -E docker compose up -d --build; then
+    echo -e "${RED}Error: Build failed.${NC}"
     exit 1
 fi
 
 echo -e "${GREEN}Deployment successful!${NC}"
-echo -e "${YELLOW}Access urls (Replace with server IP):${NC}"
-echo -e "Frontend: http://your-server-ip:5173"
-echo -e "Backend: http://your-server-ip:5000"
+echo -e "${YELLOW}Access URLs:${NC}"
+echo -e "Frontend: http://$SERVER_IP:5173"
+echo -e "Backend: http://$SERVER_IP:5000"
+echo -e "${YELLOW}If you see 'ERR_BLOCKED_BY_CLIENT', ensure your Server IP is correct and ad-blockers are disabled for this IP.${NC}"
