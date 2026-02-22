@@ -10,5 +10,10 @@ export default defineConfig({
   ],
   server: {
     allowedHosts: true,
+    hmr: {
+      protocol: 'wss',
+      host: 'schedulifynow.com',
+      clientPort: 443,
+    }
   }
 })
