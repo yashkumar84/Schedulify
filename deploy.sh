@@ -65,7 +65,6 @@ if [ ! -f "backend/.env" ]; then
         local key=$1
         local value=$2
         value=$(echo "$value" | sed 's/\//\\\//g')
-        # Use grep to check if key exists, otherwise append
         if grep -q "^$key=" backend/.env; then
             sed -i "s/^$key=.*/$key=$value/" backend/.env
         else
@@ -114,12 +113,18 @@ EOF
     # Request Certificate
     echo -e "${GREEN}Requesting SSL certificate for $DOMAIN...${NC}"
     WEBROOT_PATH="$(pwd)/certbot/www"
-    # Use dummy email if not set
-    EMAIL="admin@$DOMAIN"
-    sudo certbot certonly --webroot -w "$WEBROOT_PATH" -d "$DOMAIN" --email "$EMAIL" --agree-tos --no-eff-email --non-interactive
+    # Use a dummy email or prompt for one
+    read -p "Enter email for SSL expiration notices (Default: admin@$DOMAIN): " SSL_EMAIL
+    SSL_EMAIL=${SSL_EMAIL:-"admin@$DOMAIN"}
+    
+    sudo certbot certonly --webroot -w "$WEBROOT_PATH" -d "$DOMAIN" --email "$SSL_EMAIL" --agree-tos --no-eff-email --non-interactive
 
     # Create full Nginx SSL config
-    cat <<EOF > nginx/nginx.conf
+    if [ -f "nginx/nginx.conf.template" ]; then
+        cp nginx/nginx.conf.template nginx/nginx.conf
+        sed -i "s/\${DOMAIN}/$DOMAIN/g" nginx/nginx.conf
+    else
+        cat <<EOF > nginx/nginx.conf
 server {
     listen 80;
     server_name $DOMAIN;
@@ -135,14 +140,19 @@ server {
         proxy_pass http://frontend:5173;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
     location /api {
         proxy_pass http://backend:5000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
+    fi
 else
     # HTTP only config for IP
     cat <<EOF > nginx/nginx.conf
@@ -155,6 +165,8 @@ server {
         proxy_pass http://frontend:5173;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
     # Backend API
@@ -162,6 +174,8 @@ server {
         proxy_pass http://backend:5000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
@@ -169,7 +183,8 @@ fi
 
 # 6. Final Start
 echo -e "${GREEN}6. Starting all services with final configuration...${NC}"
-if ! sudo -E docker compose up -d --build; then
+# Use --force-recreate for nginx to ensure it picks up the new config file
+if ! sudo -E docker compose up -d --build --force-recreate nginx; then
     echo -e "${RED}Error: Deployment failed.${NC}"
     exit 1
 fi
