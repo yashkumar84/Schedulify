@@ -8,7 +8,7 @@
     "lint:watch": "nodemon --watch . --ext js,jsx,ts,tsx,html --exec \"npm run lint:continue\"",
     "lint:continue": "eslint . || exit 0",
     "start:dev": "concurrently \"npm run lint:watch\" \"NODE_ENV=dev nodemon server.js\"",
-    "start": "concurrently \"npm run lint:watch\" \"NODE_ENV=dev nodemon server.js\"",
+    "start": "node server.js",
     "staging": "NODE_ENV=staging forever start --inspect --max-old-space-size=8192 server.js",
     "stagingrestart": "NODE_ENV=staging forever restart --inspect --max-old-space-size=8192 server.js",
     "stagingstop": "NODE_ENV=staging forever stop --inspect --max-old-space-size=8192 server.js",

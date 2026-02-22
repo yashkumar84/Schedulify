@@ -79,10 +79,12 @@ if [ ! -f "backend/.env" ]; then
         fi
     }
 
-    read -p "Enter MongoDB URI (default: mongodb://localhost:27017/schedulify): " MONGO_URI
-    [[ -n "$MONGO_URI" ]] && update_env "MONGO_URI" "$MONGO_URI"
+    # IMPORTANT: In Docker bridge network, use 'db' instead of 'localhost'
+    read -p "Enter MongoDB URI (default: mongodb://db:27017/schedulify): " MONGO_URI
+    MONGO_URI=${MONGO_URI:-"mongodb://db:27017/schedulify"}
+    update_env "MONGO_URI" "$MONGO_URI"
 
-    read -p "Enter JWT Secret: " JWT_SECRET
+    read -p "Enter JWT Secret (required): " JWT_SECRET
     [[ -n "$JWT_SECRET" ]] && update_env "JWT_SECRET" "$JWT_SECRET"
 
     read -p "Enter Gmail User (default: ambranelabs@gmail.com): " GMAIL_USER
@@ -117,14 +119,16 @@ EOF
     # Start Nginx temporarily to handle challenge
     sudo docker compose up -d nginx
 
-    # Request Certificate using local directories
+    # Request Certificate
     echo -e "${GREEN}Requesting SSL certificate for $DOMAIN...${NC}"
     WEBROOT_PATH="$(pwd)/certbot/www"
     CONFIG_PATH="$(pwd)/certbot/conf"
     LOGS_PATH="$(pwd)/certbot/logs"
     
-    read -p "Enter email for SSL expiration notices (Default: admin@$DOMAIN): " SSL_EMAIL
-    SSL_EMAIL=${SSL_EMAIL:-"admin@$DOMAIN"}
+    read -p "Enter email for SSL expiration notices (e.g., admin@$DOMAIN): " SSL_EMAIL
+    if [ -z "$SSL_EMAIL" ]; then
+        SSL_EMAIL="admin@$DOMAIN"
+    fi
     
     sudo certbot certonly --webroot -w "$WEBROOT_PATH" \
         --config-dir "$CONFIG_PATH" \
@@ -197,7 +201,7 @@ fi
 # 7. Final Start
 echo -e "${GREEN}7. Starting all services with final configuration...${NC}"
 # Use --force-recreate for nginx to ensure it picks up the new config file
-if ! sudo docker compose up -d --build --force-recreate nginx; then
+if ! sudo docker compose up -d --build --force-recreate; then
     echo -e "${RED}Error: Deployment failed.${NC}"
     exit 1
 fi
