@@ -66,7 +66,7 @@ if [ ! -f "backend/.env" ]; then
         touch backend/.env
     fi
     
-    echo -e "${YELLOW}Let's configure your environment variables (Script will update placeholders):${NC}"
+    echo -e "${YELLOW}Let's configure your environment variables:${NC}"
     
     update_env() {
         local key=$1
@@ -79,21 +79,33 @@ if [ ! -f "backend/.env" ]; then
         fi
     }
 
-    # IMPORTANT: In Docker bridge network, use 'db' instead of 'localhost'
+    # Database
     read -p "Enter MongoDB URI (default: mongodb://db:27017/schedulify): " MONGO_URI
     MONGO_URI=${MONGO_URI:-"mongodb://db:27017/schedulify"}
     update_env "MONGO_URI" "$MONGO_URI"
 
-    read -p "Enter JWT Secret (required): " JWT_SECRET
-    [[ -n "$JWT_SECRET" ]] && update_env "JWT_SECRET" "$JWT_SECRET"
+    # JWT Security
+    read -p "Enter JWT Secret (default: random_secret_key_$(date +%s%N)): " JWT_SECRET
+    JWT_SECRET=${JWT_SECRET:-"secret_$(date +%s%N)"}
+    update_env "JWT_SECRET" "$JWT_SECRET"
 
-    read -p "Enter Gmail User (default: ambranelabs@gmail.com): " GMAIL_USER
+    # Email Config
+    read -p "Enter Gmail User (e.g., ambranelabs@gmail.com): " GMAIL_USER
     [[ -n "$GMAIL_USER" ]] && update_env "GMAIL_USER" "$GMAIL_USER"
 
     echo -n "Enter Gmail App Password: "
     read -rs GMAIL_PASS
     echo ""
     [[ -n "$GMAIL_PASS" ]] && update_env "GMAIL_PASS" "$GMAIL_PASS"
+
+    # Admin Defaults
+    read -p "Enter Default Super Admin Email (default: superadmin@yopmail.com): " ADMIN_EMAIL
+    ADMIN_EMAIL=${ADMIN_EMAIL:-"superadmin@yopmail.com"}
+    update_env "DEFAULT_SUPER_ADMIN" "$ADMIN_EMAIL"
+
+    read -p "Enter Default Super Admin Password (default: Password@2026): " ADMIN_PASS
+    ADMIN_PASS=${ADMIN_PASS:-"Password@2026"}
+    update_env "DEFAULT_SUPER_ADMIN_PASSWORD" "$ADMIN_PASS"
     
     update_env "NODE_ENV" "production"
     update_env "FRONTEND_URL" "$PROTOCOL://$DOMAIN"
@@ -125,10 +137,8 @@ EOF
     CONFIG_PATH="$(pwd)/certbot/conf"
     LOGS_PATH="$(pwd)/certbot/logs"
     
-    read -p "Enter email for SSL expiration notices (e.g., admin@$DOMAIN): " SSL_EMAIL
-    if [ -z "$SSL_EMAIL" ]; then
-        SSL_EMAIL="admin@$DOMAIN"
-    fi
+    read -p "Enter email for SSL expiration notices: " SSL_EMAIL
+    SSL_EMAIL=${SSL_EMAIL:-"admin@$DOMAIN"}
     
     sudo certbot certonly --webroot -w "$WEBROOT_PATH" \
         --config-dir "$CONFIG_PATH" \
@@ -200,7 +210,6 @@ fi
 
 # 7. Final Start
 echo -e "${GREEN}7. Starting all services with final configuration...${NC}"
-# Use --force-recreate for nginx to ensure it picks up the new config file
 if ! sudo docker compose up -d --build --force-recreate; then
     echo -e "${RED}Error: Deployment failed.${NC}"
     exit 1
@@ -208,3 +217,5 @@ fi
 
 echo -e "${GREEN}Deployment successful!${NC}"
 echo -e "${YELLOW}Access URL: $PROTOCOL://$DOMAIN${NC}"
+echo -e "${YELLOW}Final Step: Run the database seeder to enable login:${NC}"
+echo -e "${GREEN}sudo docker compose exec backend npm run seed${NC}"
