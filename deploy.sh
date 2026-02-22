@@ -90,13 +90,15 @@ if [ ! -f "backend/.env" ]; then
     update_env "JWT_SECRET" "$JWT_SECRET"
 
     # Email Config
-    read -p "Enter Gmail User (e.g., ambranelabs@gmail.com): " GMAIL_USER
-    [[ -n "$GMAIL_USER" ]] && update_env "GMAIL_USER" "$GMAIL_USER"
+    read -p "Enter Gmail User (default: ambranelabs@gmail.com): " GMAIL_USER
+    GMAIL_USER=${GMAIL_USER:-"ambranelabs@gmail.com"}
+    update_env "GMAIL_USER" "$GMAIL_USER"
 
-    echo -n "Enter Gmail App Password: "
+    echo -n "Enter Gmail App Password (default: gxcfxvzoloedfpzj): "
     read -rs GMAIL_PASS
     echo ""
-    [[ -n "$GMAIL_PASS" ]] && update_env "GMAIL_PASS" "$GMAIL_PASS"
+    GMAIL_PASS=${GMAIL_PASS:-"gxcfxvzoloedfpzj"}
+    update_env "GMAIL_PASS" "$GMAIL_PASS"
 
     # Admin Defaults
     read -p "Enter Default Super Admin Email (default: superadmin@yopmail.com): " ADMIN_EMAIL
