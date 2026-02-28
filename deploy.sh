@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Remote Server Deployment Script (Nginx + SSL Optimized - Manual Git Workflow)
-# This script automates the setup, SSL configuration, and deployment.
-# Note: This script assumes you have already pulled the code to your server.
+# Remote Server Deployment Script (Nginx + SSL Fully Automated)
+# Deploys Schedulify with HTTPS using Let's Encrypt for schedulifynow.com
 
 set -e
 
@@ -10,13 +9,18 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-echo -e "${YELLOW}Starting Remote Deployment Setup with Nginx and SSL...${NC}"
+DOMAIN="schedulifynow.com"
+WWW_DOMAIN="www.schedulifynow.com"
+SSL_EMAIL="schedulifynow@gmail.com"
+PROTOCOL="https"
+
+echo -e "${YELLOW}Starting Automated Deployment for $DOMAIN...${NC}"
 
 # 1. Update and Install Dependencies
 echo -e "${GREEN}1. Updating system and installing dependencies...${NC}"
-sudo apt-get update
+sudo apt-get update -y
 sudo apt-get install -y curl certbot
 
 # 2. Install Docker and Docker Compose
@@ -30,168 +34,72 @@ else
     echo -e "${GREEN}2. Docker already installed.${NC}"
 fi
 
-# 3. Domain and SSL Configuration (CRITICAL)
-echo -e "${GREEN}3. Configuring Domain and SSL...${NC}"
-DETECTED_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
-echo -e "${YELLOW}Note: SSL certificates (Let's Encrypt) require a domain name (e.g., example.com).${NC}"
-echo -e "${YELLOW}An IP address (like $DETECTED_IP) cannot be used for a standard SSL certificate.${NC}"
-read -p "Enter your Domain Name (leave blank to use IP $DETECTED_IP over HTTP): " DOMAIN_INPUT
+# 3. Kill any process on port 80 before certbot
+echo -e "${GREEN}3. Freeing port 80 for SSL certificate issuance...${NC}"
+sudo fuser -k 80/tcp || true
+docker compose down || true
 
-if [ -z "$DOMAIN_INPUT" ]; then
-    DOMAIN=$DETECTED_IP
-    PROTOCOL="http"
-    SSL_ENABLED=false
-    echo -e "${YELLOW}Proceeding with IP address $DOMAIN (HTTP only).${NC}"
-else
-    DOMAIN=$DOMAIN_INPUT
-    PROTOCOL="https"
-    SSL_ENABLED=true
-    echo -e "${GREEN}Proceeding with domain $DOMAIN (HTTPS).${NC}"
-fi
-
-# 4. Create root .env for Docker Compose
-echo -e "${GREEN}4. Creating root .env file...${NC}"
-cat <<EOF > .env
-DOMAIN=$DOMAIN
-PROTOCOL=$PROTOCOL
-EOF
-
-# 5. Interactive backend/.env Setup
+# 4. Setup backend/.env if not already present
 if [ ! -f "backend/.env" ]; then
-    echo -e "${GREEN}5. Setting up backend/.env...${NC}"
+    echo -e "${GREEN}4. Creating backend/.env from example...${NC}"
     if [ -f "backend/.env.example" ]; then
         cp backend/.env.example backend/.env
     else
-        echo -e "${RED}Error: backend/.env.example not found! Creating a basic one...${NC}"
-        touch backend/.env
-    fi
-    
-    echo -e "${YELLOW}Let's configure your environment variables:${NC}"
-    
-    update_env() {
-        local key=$1
-        local value=$2
-        value=$(echo "$value" | sed 's/\//\\\//g')
-        if grep -q "^$key=" backend/.env; then
-            sed -i "s/^$key=.*/$key=$value/" backend/.env
-        else
-            echo "$key=$value" >> backend/.env
-        fi
-    }
-
-    # Database
-    read -p "Enter MongoDB URI (default: mongodb://db:27017/schedulify): " MONGO_URI
-    MONGO_URI=${MONGO_URI:-"mongodb://db:27017/schedulify"}
-    update_env "MONGO_URI" "$MONGO_URI"
-
-    # JWT Security
-    read -p "Enter JWT Secret (default: random_secret_key_$(date +%s%N)): " JWT_SECRET
-    JWT_SECRET=${JWT_SECRET:-"secret_$(date +%s%N)"}
-    update_env "JWT_SECRET" "$JWT_SECRET"
-
-    # Email Config
-    read -p "Enter Gmail User (default: ambranelabs@gmail.com): " GMAIL_USER
-    GMAIL_USER=${GMAIL_USER:-"ambranelabs@gmail.com"}
-    update_env "GMAIL_USER" "$GMAIL_USER"
-
-    echo -n "Enter Gmail App Password (default: gxcfxvzoloedfpzj): "
-    read -rs GMAIL_PASS
-    echo ""
-    GMAIL_PASS=${GMAIL_PASS:-"gxcfxvzoloedfpzj"}
-    update_env "GMAIL_PASS" "$GMAIL_PASS"
-
-    # Admin Defaults
-    read -p "Enter Default Super Admin Email (default: superadmin@yopmail.com): " ADMIN_EMAIL
-    ADMIN_EMAIL=${ADMIN_EMAIL:-"superadmin@yopmail.com"}
-    update_env "DEFAULT_SUPER_ADMIN" "$ADMIN_EMAIL"
-
-    read -p "Enter Default Super Admin Password (default: Password@2026): " ADMIN_PASS
-    ADMIN_PASS=${ADMIN_PASS:-"Password@2026"}
-    update_env "DEFAULT_SUPER_ADMIN_PASSWORD" "$ADMIN_PASS"
-    
-    update_env "NODE_ENV" "production"
-    update_env "FRONTEND_URL" "$PROTOCOL://$DOMAIN"
-    echo -e "${GREEN}.env configuration complete.${NC}"
-fi
-
-# 6. Nginx Configuration
-echo -e "${GREEN}6. Setting up Nginx...${NC}"
-mkdir -p nginx
-mkdir -p certbot/www certbot/conf certbot/logs
-
-if [ "$SSL_ENABLED" = true ]; then
-    # Create temporary Nginx config for Certbot challenge
-    cat <<EOF > nginx/nginx.conf
-server {
-    listen 80;
-    server_name $DOMAIN;
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-}
-EOF
-    # Start Nginx temporarily to handle challenge
-    sudo docker compose up -d nginx
-
-    # Request Certificate
-    echo -e "${GREEN}Requesting SSL certificate for $DOMAIN...${NC}"
-    WEBROOT_PATH="$(pwd)/certbot/www"
-    CONFIG_PATH="$(pwd)/certbot/conf"
-    LOGS_PATH="$(pwd)/certbot/logs"
-    
-    read -p "Enter email for SSL expiration notices: " SSL_EMAIL
-    SSL_EMAIL=${SSL_EMAIL:-"admin@$DOMAIN"}
-    
-    sudo certbot certonly --webroot -w "$WEBROOT_PATH" \
-        --config-dir "$CONFIG_PATH" \
-        --logs-dir "$LOGS_PATH" \
-        --work-dir "$LOGS_PATH" \
-        -d "$DOMAIN" --email "$SSL_EMAIL" --agree-tos --no-eff-email --non-interactive
-
-    # Create full Nginx SSL config from template
-    if [ -f "nginx/nginx.conf.template" ]; then
-        cp nginx/nginx.conf.template nginx/nginx.conf
-        sed -i "s/\${DOMAIN}/$DOMAIN/g" nginx/nginx.conf
-    else
-        cat <<EOF > nginx/nginx.conf
-server {
-    listen 80;
-    server_name $DOMAIN;
-    location / { return 301 https://\$host\$request_uri; }
-}
-server {
-    listen 443 ssl;
-    server_name $DOMAIN;
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    
-    location / {
-        proxy_pass http://frontend:5173;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-    location /api {
-        proxy_pass http://backend:5000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
+        cat <<EOF > backend/.env
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/schedulifynow
+JWT_SECRET=secret_$(date +%s%N)
+GMAIL_USER=schedulifynow@gmail.com
+GMAIL_PASS=changeme
+DEFAULT_SUPER_ADMIN=superadmin@yopmail.com
+DEFAULT_SUPER_ADMIN_PASSWORD=Password@2026
+NODE_ENV=production
+FRONTEND_URL=https://schedulifynow.com
 EOF
     fi
 else
-    # HTTP only config for IP
-    cat <<EOF > nginx/nginx.conf
+    echo -e "${GREEN}4. backend/.env already exists, skipping...${NC}"
+fi
+
+# 5. Create certbot directories
+mkdir -p certbot/www certbot/conf certbot/logs
+
+# 6. Get SSL Certificate using standalone mode
+echo -e "${GREEN}5. Requesting SSL certificate for $DOMAIN...${NC}"
+sudo certbot certonly --standalone \
+    --non-interactive \
+    --agree-tos \
+    --no-eff-email \
+    --email "$SSL_EMAIL" \
+    -d "$DOMAIN" \
+    -d "$WWW_DOMAIN" \
+    --config-dir "$(pwd)/certbot/conf" \
+    --logs-dir "$(pwd)/certbot/logs" \
+    --work-dir "$(pwd)/certbot/logs"
+
+# 7. Write final Nginx SSL config
+echo -e "${GREEN}6. Writing Nginx SSL configuration...${NC}"
+cat <<EOF > nginx/nginx_prod.conf
+# Redirect HTTP to HTTPS
 server {
     listen 80;
-    server_name $DOMAIN;
+    server_name $DOMAIN $WWW_DOMAIN;
+    return 301 https://\$host\$request_uri;
+}
+
+# HTTPS server
+server {
+    listen 443 ssl;
+    server_name $DOMAIN $WWW_DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
 
     # Frontend
     location / {
-        proxy_pass http://frontend:5173;
+        proxy_pass http://127.0.0.1:5173;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -200,7 +108,7 @@ server {
 
     # Backend API
     location /api {
-        proxy_pass http://backend:5000;
+        proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -208,16 +116,13 @@ server {
     }
 }
 EOF
-fi
 
-# 7. Final Start
-echo -e "${GREEN}7. Starting all services with final configuration...${NC}"
-if ! sudo docker compose up -d --build --force-recreate; then
-    echo -e "${RED}Error: Deployment failed.${NC}"
-    exit 1
-fi
+# 8. Start all services
+echo -e "${GREEN}7. Starting all Docker services...${NC}"
+docker compose up -d --build --force-recreate
 
-echo -e "${GREEN}Deployment successful!${NC}"
-echo -e "${YELLOW}Access URL: $PROTOCOL://$DOMAIN${NC}"
-echo -e "${YELLOW}Final Step: Run the database seeder to enable login:${NC}"
-echo -e "${GREEN}sudo docker compose exec backend npm run seed${NC}"
+echo -e "${GREEN}Deployment complete!${NC}"
+echo -e "${YELLOW}Your site is live at: $PROTOCOL://$DOMAIN${NC}"
+echo -e ""
+echo -e "${YELLOW}To seed the database (first-time setup), run:${NC}"
+echo -e "${GREEN}docker compose exec backend npm run seed${NC}"
