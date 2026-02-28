@@ -70,6 +70,7 @@ sudo certbot certonly --standalone \
     --non-interactive \
     --agree-tos \
     --no-eff-email \
+    --expand \
     --email "$SSL_EMAIL" \
     -d "$DOMAIN" \
     -d "$WWW_DOMAIN" \
