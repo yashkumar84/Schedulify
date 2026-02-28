@@ -15,7 +15,10 @@ export const initializeSocket = () => {
         return socket;
     }
 
-    const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const VITE_API_URL = import.meta.env.VITE_API_URL;
+    const SOCKET_URL = VITE_API_URL
+        ? (VITE_API_URL.startsWith('http') ? VITE_API_URL.replace('/api', '') : window.location.origin)
+        : 'https://schedulifynow.com';
 
     socket = io(SOCKET_URL, {
         auth: {

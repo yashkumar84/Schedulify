@@ -398,6 +398,69 @@ const deleteTask = async (req, res) => {
   }
 };
 
+const addComment = async (req, res) => {
+  try {
+    const { text } = req.body;
+    const taskId = req.params.id;
+    const userId = req.user._id;
+
+    if (!text || text.trim() === '') {
+      return res.status(400).json({ message: 'Comment text is required' });
+    }
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    task.comments.push({
+      user: userId,
+      text: text
+    });
+
+    task.activityLog.push({
+      user: userId,
+      action: `Added a comment: "${text.substring(0, 30)}${text.length > 30 ? '...' : ''}"`
+    });
+
+    await task.save();
+
+    // Populate user details for the new comment
+    const updatedTask = await Task.findById(taskId)
+      .populate('comments.user', 'name email role')
+      .populate('assignedTo', 'name email')
+      .populate('createdBy', 'name email role')
+      .populate('approvedBy', 'name email');
+
+    // Notify assigned user if someone else commented
+    if (task.assignedTo && task.assignedTo.toString() !== userId.toString()) {
+      const notification = new Notification({
+        recipient: task.assignedTo,
+        sender: userId,
+        type: 'TASK_COMMENT',
+        message: `${req.user.name} commented on task "${task.title}"`,
+        link: `/tasks?project=${task.project}`
+      });
+      const savedNotification = await notification.save();
+
+      // Real-time broadcast
+      const { sendNotification } = require('../lib/socket');
+      sendNotification(task.assignedTo.toString(), {
+        _id: savedNotification._id,
+        type: savedNotification.type,
+        message: savedNotification.message,
+        link: savedNotification.link,
+        createdAt: savedNotification.createdAt,
+        sender: { name: req.user.name }
+      });
+    }
+
+    res.status(201).json(updatedTask);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask,
   updateTaskStatus,
@@ -406,5 +469,6 @@ module.exports = {
   approveTask,
   rejectTask,
   getPendingTasks,
-  deleteTask
+  deleteTask,
+  addComment
 };

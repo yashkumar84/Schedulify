@@ -433,3 +433,18 @@ export const useActivities = (projectId?: string) => {
         },
     });
 };
+// File Upload Hook
+export const useUpload = () => {
+    return useMutation({
+        mutationFn: async (file: File) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await api.post('/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data;
+        }
+    });
+};

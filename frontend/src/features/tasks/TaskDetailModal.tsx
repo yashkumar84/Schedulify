@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import CustomSelect from '../../components/ui/CustomSelect';
-import { useTeam, useApproveTask, useRejectTask } from '../../hooks/useApi';
+import { useTeam, useApproveTask, useRejectTask, useUpload } from '../../hooks/useApi';
 import { useAuthStore } from '../../store/authStore';
 import { Loader2 } from 'lucide-react';
 
@@ -55,6 +55,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const uploadMutation = useUpload();
 
     const { data: teamMembers } = useTeam();
     const approveTaskMutation = useApproveTask();
@@ -71,7 +73,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             title: task.title,
             description: task.description,
             dueDate: formatDate(task.dueDate),
-            assignedTo: task.assignedTo?._id || task.assignedTo,
+            assignedTo: task.assignedTo?.id || task.assignedTo?._id || task.assignedTo,
             rk: ''
         }
     });
@@ -82,7 +84,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 title: task.title,
                 description: task.description,
                 dueDate: formatDate(task.dueDate),
-                assignedTo: task.assignedTo?._id || task.assignedTo,
+                assignedTo: task.assignedTo?.id || task.assignedTo?._id || task.assignedTo,
                 rk: ''
             });
         }
@@ -98,10 +100,30 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
         setIsSubmittingComment(true);
         try {
-            await onAddComment?.(task._id, commentText);
+            await onAddComment?.(task._id || task.id, commentText);
             setCommentText('');
+        } catch (error) {
+            console.error('Failed to add comment:', error);
         } finally {
             setIsSubmittingComment(false);
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const data = await uploadMutation.mutateAsync(file);
+            // After successful upload, update the task with the new file URL
+            const currentFiles = task.files || [];
+            onUpdate?.(task._id || task.id, {
+                files: [...currentFiles, data.url]
+            });
+        } catch (error) {
+            console.error('File upload failed:', error);
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
@@ -258,7 +280,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                         render={({ field }) => (
                                             <CustomSelect
                                                 options={teamMembers?.map((member: any) => ({
-                                                    id: member._id,
+                                                    id: member.id || member._id,
                                                     label: member.name,
                                                     icon: Users,
                                                     color: 'text-primary-600',
@@ -385,20 +407,40 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                 <Paperclip size={16} />
                                 Attachments ({task.files?.length || 0})
                             </h3>
-                            <button className="text-primary-600 text-xs font-bold flex items-center gap-1 hover:underline">
-                                <Upload size={14} />
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploadMutation.isPending}
+                                className="text-primary-600 text-xs font-bold flex items-center gap-1 hover:underline disabled:opacity-50"
+                            >
+                                {uploadMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                                 Upload File
                             </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileUpload}
+                                className="hidden"
+                            />
                         </div>
                         {task.files && task.files.length > 0 ? (
                             <div className="space-y-2">
-                                {task.files.map((file: string, index: number) => (
-                                    <div key={index} className="flex items-center gap-2 p-3 bg-secondary-50 rounded-lg">
-                                        <Paperclip size={14} className="text-secondary-500" />
-                                        <span className="text-sm flex-1">{file}</span>
-                                        <button className="text-primary-600 text-xs font-bold hover:underline">Download</button>
-                                    </div>
-                                ))}
+                                {task.files.map((file: string, index: number) => {
+                                    const fileName = file.split('/').pop() || 'Attachment';
+                                    return (
+                                        <div key={index} className="flex items-center gap-2 p-3 bg-secondary-50 rounded-lg">
+                                            <Paperclip size={14} className="text-secondary-500" />
+                                            <span className="text-sm flex-1 truncate">{fileName}</span>
+                                            <a
+                                                href={file}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-primary-600 text-xs font-bold hover:underline"
+                                            >
+                                                Download
+                                            </a>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         ) : (
                             <p className="text-secondary-500 text-sm italic">No attachments yet.</p>

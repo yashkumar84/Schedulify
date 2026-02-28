@@ -1,4 +1,4 @@
-import React, { useState, KeyboardEvent } from 'react';
+import React, { useState, KeyboardEvent, useRef } from 'react';
 import { Send, Paperclip, Loader2 } from 'lucide-react';
 
 interface ChatInputProps {
@@ -11,7 +11,7 @@ interface ChatInputProps {
 const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTyping, disabled = false }) => {
     const [message, setMessage] = useState('');
     const [isUploading, setIsUploading] = useState(false);
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleSend = () => {
         if (message.trim() && !disabled) {
@@ -27,7 +27,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
         setIsUploading(true);
         try {
             const data = await onUploadFile(file);
-            // Send as message immediately or could wait for user to hit send
             onSendMessage(file.name, data.type, {
                 fileName: data.fileName,
                 fileUrl: data.url,
@@ -35,7 +34,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
                 mimetype: data.mimetype
             });
         } catch (error) {
-            alert('Failed to upload file');
+            console.error('Upload failed:', error);
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -55,36 +54,54 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
     };
 
     return (
-        <div className="border-t border-border p-4 bg-card">
+        <div className="border-t border-border p-3 sm:p-4 bg-white/80 backdrop-blur-md relative overflow-hidden">
+            {isUploading && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center gap-2 animate-in fade-in duration-300">
+                    <Loader2 className="animate-spin text-primary-600" size={18} />
+                    <span className="text-xs font-bold text-primary-700 tracking-tight">Uploading secure attachment...</span>
+                </div>
+            )}
+
             <input
                 type="file"
                 className="hidden"
                 ref={fileInputRef}
                 onChange={handleFileChange}
             />
-            <div className="flex gap-2 items-end">
-                <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={disabled || isUploading}
-                    className="w-10 h-10 rounded-xl hover:bg-secondary-50 text-secondary-500 flex items-center justify-center transition-colors disabled:opacity-50 flex-shrink-0"
-                >
-                    {isUploading ? <Loader2 size={18} className="animate-spin text-primary-600" /> : <Paperclip size={18} />}
-                </button>
-                <textarea
-                    value={message}
-                    onChange={handleChange}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type a message..."
-                    disabled={disabled || isUploading}
-                    rows={1}
-                    className="flex-1 px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 resize-none max-h-32 disabled:opacity-50"
-                    style={{ minHeight: '40px', maxHeight: '128px' }}
-                />
+
+            <div className="flex gap-2 items-center">
+                <div className="flex gap-1">
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={disabled || isUploading}
+                        title="Attach File"
+                        className="w-10 h-10 rounded-full hover:bg-secondary-100 text-secondary-500 flex items-center justify-center transition-all disabled:opacity-50 active:scale-95"
+                    >
+                        <Paperclip size={20} />
+                    </button>
+                </div>
+
+                <div className="flex-1 bg-secondary-50 border border-secondary-200 rounded-[24px] px-4 py-1.5 focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500 transition-all shadow-inner">
+                    <textarea
+                        value={message}
+                        onChange={handleChange}
+                        onKeyDown={handleKeyPress as any}
+                        placeholder="Type a message..."
+                        disabled={disabled || isUploading}
+                        rows={1}
+                        className="w-full bg-transparent border-none outline-none text-sm resize-none py-1.5 disabled:opacity-50 placeholder:text-secondary-400 font-medium"
+                        style={{ minHeight: '32px', maxHeight: '120px' }}
+                    />
+                </div>
+
                 <button
                     onClick={handleSend}
                     disabled={!message.trim() || disabled || isUploading}
-                    className="w-10 h-10 rounded-xl bg-primary-600 text-white flex items-center justify-center hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all transform active:scale-90 shadow-md ${!message.trim() || disabled || isUploading
+                        ? 'bg-secondary-200 text-secondary-400 cursor-not-allowed'
+                        : 'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-lg'
+                        }`}
                 >
                     <Send size={18} />
                 </button>

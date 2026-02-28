@@ -174,9 +174,9 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
                                     No options found
                                 </div>
                             ) : (
-                                filteredOptions.map((option) => (
+                                filteredOptions.map((option, index) => (
                                     <div
-                                        key={option.id}
+                                        key={option.id || `opt-${index}`}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onChange(option.id);

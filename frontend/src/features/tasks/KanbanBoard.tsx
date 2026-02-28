@@ -8,7 +8,7 @@ import {
     Clock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useTasks, useProjects, useCreateTask, useUpdateTask, useDeleteTask, useAddComment, useTeam } from '../../hooks/useApi';
+import { useTasks, useProjects, useCreateTask, useUpdateTask, useDeleteTask, useAddComment, useTeam, useUpload } from '../../hooks/useApi';
 import {
     Plus,
     Loader2,
@@ -18,7 +18,9 @@ import {
     Zap,
     AlertCircle,
     Clock as ClockIcon,
-    Users
+    Users,
+    Upload,
+    X
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import CustomSelect, { SelectOption } from '../../components/ui/CustomSelect';
@@ -230,6 +232,9 @@ const KanbanBoard: React.FC = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeStatus, setActiveStatus] = useState<TaskStatus>(TaskStatus.TODO);
+    const [attachments, setAttachments] = useState<any[]>([]);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const uploadMutation = useUpload();
 
     const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
 
@@ -237,13 +242,33 @@ const KanbanBoard: React.FC = () => {
         createTaskMutation.mutate({
             ...data,
             status: activeStatus,
-            project: selectedProjectId
+            project: selectedProjectId,
+            files: attachments.map(f => f.url)
         }, {
             onSuccess: () => {
                 setIsModalOpen(false);
                 reset();
+                setAttachments([]);
             }
         });
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const data = await uploadMutation.mutateAsync(file);
+            setAttachments(prev => [...prev, data]);
+        } catch (error) {
+            console.error('File upload failed:', error);
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const removeAttachment = (index: number) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleTaskClick = (task: any) => {
@@ -402,6 +427,14 @@ const KanbanBoard: React.FC = () => {
                                 />
                                 {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message as string}</p>}
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Description</label>
+                                <textarea
+                                    {...register('description')}
+                                    className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 resize-none h-24"
+                                    placeholder="Add task details..."
+                                />
+                            </div>
                             <div className="space-y-2">
                                 <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-1.5 ml-1">
                                     Priority Level
@@ -436,7 +469,7 @@ const KanbanBoard: React.FC = () => {
                                     render={({ field }) => (
                                         <CustomSelect
                                             options={teamMembers?.map((member: any) => ({
-                                                id: member._id,
+                                                id: member.id || member._id,
                                                 label: member.name,
                                                 icon: Users,
                                                 color: 'text-primary-600',
@@ -448,6 +481,48 @@ const KanbanBoard: React.FC = () => {
                                         />
                                     )}
                                 />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium mb-1">Attachments</label>
+                                <div className="space-y-2">
+                                    {attachments.map((file, index) => (
+                                        <div key={index} className="flex items-center gap-2 p-2 bg-secondary-50 border border-border rounded-xl">
+                                            <Paperclip size={14} className="text-secondary-400" />
+                                            <span className="text-xs font-medium truncate flex-1">{file.fileName}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeAttachment(index)}
+                                                className="text-secondary-400 hover:text-red-500"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploadMutation.isPending}
+                                        className="w-full py-2 border-2 border-dashed border-secondary-200 rounded-xl text-secondary-500 hover:border-primary-500 hover:text-primary-600 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+                                    >
+                                        {uploadMutation.isPending ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                        ) : (
+                                            <>
+                                                <Upload size={16} />
+                                                <span>Add Attachment</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                             <div className="flex justify-end gap-3 mt-8">
                                 <button
