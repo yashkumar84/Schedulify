@@ -25,7 +25,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
-    const queryClient = useAuthStore.getState(); // Just for refreshing
+
 
     const { data: notifications, refetch: refetchNotifications } = useNotifications();
     const markRead = useMarkNotificationRead();
@@ -36,10 +36,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     useEffect(() => {
         const socket = getSocket();
         if (socket) {
-            socket.on('new-notification', (notification) => {
-                // Invalidate and refetch
+            socket.on('new-notification', () => {
                 refetchNotifications();
-                // Optional: Show a toast here if available
             });
             return () => {
                 socket.off('new-notification');
@@ -52,19 +50,20 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         navigate('/login');
     };
 
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    const perms = user?.permissions;
+
     const navItems = [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-        { name: 'Projects', icon: Briefcase, path: '/projects' },
-        { name: 'Tasks', icon: CheckSquare, path: '/tasks' },
-        { name: 'Global Tasks', icon: AlertCircle, path: '/global-tasks', roles: ['SUPER_ADMIN', 'PROJECT_MANAGER'] },
-        { name: 'Expenses', icon: CreditCard, path: '/expenses', roles: ['SUPER_ADMIN', 'FINANCE_TEAM'] },
-        { name: 'Team', icon: Users, path: '/team', roles: ['SUPER_ADMIN', 'PROJECT_MANAGER', 'INHOUSE_TEAM', 'FINANCE_TEAM'] },
-        { name: 'Profile', icon: UserCircle, path: '/profile' },
+        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', visible: true },
+        { name: 'Projects', icon: Briefcase, path: '/projects', visible: isSuperAdmin || !!perms?.projects?.read },
+        { name: 'Tasks', icon: CheckSquare, path: '/tasks', visible: isSuperAdmin || !!perms?.tasks?.read },
+        { name: 'Global Tasks', icon: AlertCircle, path: '/global-tasks', visible: isSuperAdmin },
+        { name: 'Expenses', icon: CreditCard, path: '/expenses', visible: isSuperAdmin || !!perms?.finance?.read },
+        { name: 'Team', icon: Users, path: '/team', visible: isSuperAdmin || !!perms?.team?.read },
+        { name: 'Profile', icon: UserCircle, path: '/profile', visible: true },
     ];
 
-    const filteredNavItems = navItems.filter(item =>
-        !item.roles || (user?.role && item.roles.includes(user.role))
-    );
+    const filteredNavItems = navItems.filter(item => item.visible);
 
     return (
         <div className="min-h-screen bg-background">
@@ -184,7 +183,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-secondary-900 truncate">{user?.name}</p>
-                            <p className="text-xs text-secondary-500 truncate uppercase tracking-tighter">{user?.role?.replace('_', ' ')}</p>
+                            <p className="text-xs text-secondary-500 truncate uppercase tracking-tighter">
+                                {user?.role === 'SUPER_ADMIN' ? 'Admin' : 'Team Member'}
+                            </p>
                         </div>
                     </div>
                     <button
@@ -287,7 +288,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         <div className="flex items-center gap-3 pl-2">
                             <div className="text-right hidden sm:block">
                                 <p className="text-sm font-bold text-secondary-900 leading-tight">{user?.name}</p>
-                                <p className="text-[10px] text-secondary-500 uppercase tracking-widest font-bold">{user?.role?.replace('_', ' ')}</p>
+                                <p className="text-[10px] text-secondary-500 uppercase tracking-widest font-bold">
+                                    {user?.role === 'SUPER_ADMIN' ? 'Admin' : 'Team Member'}
+                                </p>
                             </div>
                             <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600 font-bold border border-primary-100 shadow-sm">
                                 {user?.name?.charAt(0)}

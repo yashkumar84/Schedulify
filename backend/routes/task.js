@@ -10,19 +10,23 @@ const {
   getPendingTasks,
   deleteTask
 } = require('../controllers/TaskController');
-const { authenticate, authorize } = require('../helpers/auth');
+const { authenticate, authorize, checkPermission } = require('../helpers/auth');
 const { Roles } = require('../config/global');
 const { validate, taskSchema } = require('../validations');
 
-router.post('/', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), validate(taskSchema), createTask);
-router.put('/:id/status', authenticate, updateTaskStatus);
-router.delete('/:id', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), deleteTask);
+// Order matters: specific routes before parameterized routes
+router.get('/all', authenticate, checkPermission('tasks', 'read'), getAdminAllTasks);
+// No permission gate here: the controller itself handles role-based visibility
+// (admin = all tasks, project manager = all tasks, team member = only their own)
 router.get('/project/:projectId', authenticate, getProjectTasks);
-router.get('/all', authenticate, authorize(Roles.SUPER_ADMIN, Roles.PROJECT_MANAGER), getAdminAllTasks);
 
-// Approval routes (Admin only)
+// Task approval routes — Super Admin only (approval workflow unchanged)
 router.get('/pending', authenticate, authorize(Roles.SUPER_ADMIN), getPendingTasks);
 router.put('/:id/approve', authenticate, authorize(Roles.SUPER_ADMIN), approveTask);
 router.put('/:id/reject', authenticate, authorize(Roles.SUPER_ADMIN), rejectTask);
+
+router.post('/', authenticate, checkPermission('tasks', 'create'), validate(taskSchema), createTask);
+router.put('/:id', authenticate, checkPermission('tasks', 'update'), updateTaskStatus);
+router.delete('/:id', authenticate, checkPermission('tasks', 'delete'), deleteTask);
 
 module.exports = router;

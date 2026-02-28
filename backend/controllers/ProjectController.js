@@ -10,13 +10,14 @@ const { logActivity } = require('../helpers/activity');
 
 // @desc    Get all projects
 // @route   GET /api/projects
-// @access  Private
+// @access  Private (requires projects.read permission)
 const getAllProjects = async (req, res) => {
   try {
     const { id, role } = req.user;
     let query = {};
 
     if (role !== Roles.SUPER_ADMIN) {
+      // Team members see projects they manage or collaborate on
       query = {
         $or: [
           { manager: id },
@@ -38,7 +39,7 @@ const getAllProjects = async (req, res) => {
 
 // @desc    Get project by ID with tasks and metrics
 // @route   GET /api/projects/:id
-// @access  Private
+// @access  Private (requires projects.read permission)
 const getProjectById = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
@@ -49,7 +50,6 @@ const getProjectById = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    // Access check
     const { id, role } = req.user;
     const isManager = project.manager && project.manager._id.toString() === id;
     const isCollaborator = project.collaborators?.some(c => c._id.toString() === id);
@@ -67,7 +67,7 @@ const getProjectById = async (req, res) => {
 
 // @desc    Create a project
 // @route   POST /api/projects
-// @access  Private (Admin/Project Manager)
+// @access  Private (requires projects.create permission)
 const createProject = async (req, res) => {
   try {
     const { name, clientName, startDate, endDate, budget, manager, collaborators, description } = req.body;
@@ -75,17 +75,14 @@ const createProject = async (req, res) => {
 
     let projectManagerId = manager;
 
-    // RBAC Logic:
-    // If PM creates, they are forced as manager
-    // If Super Admin creates, they must specify a manager
-    if (currentUserRole === Roles.PROJECT_MANAGER) {
-      projectManagerId = currentUserId;
-    } else if (currentUserRole === Roles.SUPER_ADMIN) {
+    if (currentUserRole === Roles.SUPER_ADMIN) {
+      // Admin must specify a manager
       if (!projectManagerId) {
         return res.status(400).json({ message: 'Please select a Project Manager' });
       }
     } else {
-      return res.status(403).json({ message: 'Not authorized to create projects' });
+      // Team members are automatically set as the project manager
+      projectManagerId = currentUserId;
     }
 
     const project = new Project({
@@ -95,35 +92,29 @@ const createProject = async (req, res) => {
       endDate,
       budget,
       manager: projectManagerId,
-      collaborators: collaborators || [],
+      collaborators: (collaborators || []).filter(c => c.toString() !== projectManagerId.toString()),
       description
     });
 
     const createdProject = await project.save();
 
-    // Fetch details for emails
+    // Send notifications
     const managerUser = await User.findById(projectManagerId);
     const collaboratorUsers = await User.find({ _id: { $in: collaborators || [] } });
     const superAdmins = await User.find({ role: Roles.SUPER_ADMIN });
 
-    // Prepare recipients list (avoid duplicates)
     const recipientMap = new Map();
-
     [
       { email: managerUser.email, name: managerUser.name, role: 'Project Manager' },
       ...collaboratorUsers.map(u => ({ email: u.email, name: u.name, role: 'Collaborator' })),
       ...superAdmins.map(u => ({ email: u.email, name: u.name, role: 'Super Admin' }))
     ].forEach(r => {
-      if (!recipientMap.has(r.email)) {
-        recipientMap.set(r.email, r);
-      }
+      if (!recipientMap.has(r.email)) recipientMap.set(r.email, r);
     });
 
-    // Send emails
     const templatePath = path.join(__dirname, '../templates/ProjectAssignment.html');
     if (fs.existsSync(templatePath)) {
       const templateHtml = fs.readFileSync(templatePath, 'utf8');
-
       for (const recipient of recipientMap.values()) {
         const html = templateHtml
           .replace(/{{PROJECT_NAME}}/g, name)
@@ -134,18 +125,13 @@ const createProject = async (req, res) => {
           .replace(/{{LOGIN_URL}}/g, process.env.CLIENT_URL || 'http://localhost:5173');
 
         try {
-          await sendEmail({
-            email: recipient.email,
-            subject: `Assigned to New Project: ${name}`,
-            html: html
-          });
+          await sendEmail({ email: recipient.email, subject: `Assigned to New Project: ${name}`, html });
         } catch (error) {
           console.error(`Email Error for ${recipient.email}:`, error);
         }
       }
     }
 
-    // Log Activity
     await logActivity({
       user: currentUserId,
       project: createdProject._id,
@@ -163,7 +149,7 @@ const createProject = async (req, res) => {
 
 // @desc    Update project
 // @route   PUT /api/projects/:id
-// @access  Private (Admin/Project Manager)
+// @access  Private (requires projects.update permission)
 const updateProject = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -174,24 +160,15 @@ const updateProject = async (req, res) => {
     const { name, clientName, startDate, endDate, budget, manager, collaborators, description, status } = req.body;
     const oldCollaborators = project.collaborators.map(c => c.toString());
     const newCollaborators = collaborators || [];
-
-    // Find newly added collaborators
     const addedCollaborators = newCollaborators.filter(c => !oldCollaborators.includes(c));
 
-    // Track specific changes for activity log
     const changes = [];
-    if (status && status !== project.status) {
-      changes.push(`status changed to "${status}"`);
-    }
+    if (status && status !== project.status) changes.push(`status changed to "${status}"`);
     if (endDate && new Date(endDate).toLocaleDateString() !== new Date(project.endDate).toLocaleDateString()) {
       changes.push(`deadline updated to ${new Date(endDate).toLocaleDateString()}`);
     }
-    if (name && name !== project.name) {
-      changes.push(`name updated to "${name}"`);
-    }
-    if (description && description !== project.description) {
-      changes.push(`description updated`);
-    }
+    if (name && name !== project.name) changes.push(`name updated to "${name}"`);
+    if (description && description !== project.description) changes.push('description updated');
 
     project.name = name || project.name;
     project.clientName = clientName || project.clientName;
@@ -199,13 +176,12 @@ const updateProject = async (req, res) => {
     project.endDate = endDate || project.endDate;
     project.budget = budget !== undefined ? budget : project.budget;
     project.manager = manager || project.manager;
-    project.collaborators = newCollaborators;
+    project.collaborators = (collaborators || []).filter(c => c.toString() !== project.manager.toString());
     project.description = description || project.description;
     project.status = status || project.status;
 
     const updatedProject = await project.save();
 
-    // Send emails and track added collaborators for log
     if (addedCollaborators.length > 0) {
       const collaboratorUsers = await User.find({ _id: { $in: addedCollaborators } });
       const teammateNames = collaboratorUsers.map(u => u.name).join(', ');
@@ -224,11 +200,7 @@ const updateProject = async (req, res) => {
             .replace(/{{LOGIN_URL}}/g, process.env.CLIENT_URL || 'http://localhost:5173');
 
           try {
-            await sendEmail({
-              email: user.email,
-              subject: `You've been added to project: ${project.name}`,
-              html: html
-            });
+            await sendEmail({ email: user.email, subject: `You've been added to project: ${project.name}`, html });
           } catch (emailErr) {
             console.error(`Email failed for ${user.email}:`, emailErr.message);
           }
@@ -236,11 +208,7 @@ const updateProject = async (req, res) => {
       }
     }
 
-    // Log Activity with detailed description focused only on changes
-    const detailedDescription = changes.length > 0
-      ? changes.join(', ')
-      : `Project details were updated`;
-
+    const detailedDescription = changes.length > 0 ? changes.join(', ') : 'Project details were updated';
     await logActivity({
       user: req.user.id,
       project: updatedProject._id,
@@ -258,11 +226,10 @@ const updateProject = async (req, res) => {
 
 // @desc    Delete project
 // @route   DELETE /api/projects/:id
-// @access  Private (Admin/Project Manager)
+// @access  Private (requires projects.delete permission)
 const deleteProject = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
-
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
@@ -271,10 +238,8 @@ const deleteProject = async (req, res) => {
     const projectId = project._id;
 
     await project.deleteOne();
-    // Also delete associated tasks
     await Task.deleteMany({ project: projectId });
 
-    // Log Activity
     await logActivity({
       user: req.user.id,
       project: projectId,

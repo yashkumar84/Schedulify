@@ -13,20 +13,11 @@ const createTask = async (req, res) => {
     const userId = req.user._id;
     const userRole = req.user.role;
 
-    // RBAC: Outsource Team cannot create tasks
-    if (userRole === Roles.OUTSOURCED_TEAM) {
-      return res.status(403).json({ message: 'Outsource Team is not authorized to create tasks' });
-    }
-
-    // Role validation for assignment (for INHOUSE_TEAM)
-    if (assignedTo && userRole === Roles.INHOUSE_TEAM) {
+    // No specific restricted assignment roles in the simplified system
+    // SUPER_ADMIN and TEAM_MEMBER can assign tasks freely.
+    if (assignedTo) {
       const targetUser = await User.findById(assignedTo);
       if (!targetUser) return res.status(404).json({ message: 'Assigned user not found' });
-
-      const restrictedRoles = [Roles.OUTSOURCED_TEAM, Roles.FINANCE_TEAM];
-      if (restrictedRoles.includes(targetUser.role)) {
-        return res.status(403).json({ message: 'INHOUSE_TEAM can only assign tasks to Team members, PMs, or Admins.' });
-      }
     }
 
     const task = new Task({
@@ -75,33 +66,64 @@ const createTask = async (req, res) => {
 // @access  Private (Assigned User, PM, Admin)
 const updateTaskStatus = async (req, res) => {
   try {
+    const { status, remark, rk, ...otherUpdates } = req.body;
+    const finalRemark = remark || rk;
+
     const task = await Task.findById(req.params.id)
       .populate('project')
       .populate('assignedTo', 'name email');
 
-    if (task) {
-      const oldStatus = task.status;
-      task.status = req.body.status || task.status;
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    const userId = req.user._id;
+    const userRole = req.user.role;
+    const isProjectManager = task.project && task.project.manager && task.project.manager.toString() === userId.toString();
+    const isAdmin = userRole === Roles.SUPER_ADMIN;
+
+    // Restriction: Only Admin or Project Manager can mark as completed
+    if (status === 'completed' && !isAdmin && !isProjectManager) {
+      return res.status(403).json({ message: 'Only an Admin or Project Manager can complete tasks' });
+    }
+
+    const oldStatus = task.status;
+    const isStatusChanging = status && status !== oldStatus;
+
+    // Apply updates
+    if (status) task.status = status;
+    Object.assign(task, otherUpdates);
+
+    if (isStatusChanging || finalRemark) {
+      let actionText = `Updated task`;
+      if (isStatusChanging) {
+        actionText = `Changed status from ${oldStatus} to ${task.status}`;
+      }
+      if (finalRemark) {
+        actionText += ` | Remark: ${finalRemark}`;
+      }
 
       task.activityLog.push({
-        user: req.user._id,
-        action: `Changed status from ${oldStatus} to ${task.status}`
+        user: userId,
+        action: actionText
       });
 
-      const updatedTask = await task.save();
-
-      // Log Activity
+      // Log Activity to central log
       await logActivity({
-        user: req.user._id,
+        user: userId,
         project: task.project?._id,
         task: task._id,
-        action: 'updated_status',
+        action: isStatusChanging ? 'updated_status' : 'updated',
         entityType: 'TASK',
         entityName: task.title,
-        description: `Task status changed from ${oldStatus} to ${task.status}`
+        description: actionText
       });
+    }
 
-      // Notifications logic
+    const updatedTask = await task.save();
+
+    // Notifications logic
+    if (isStatusChanging) {
       try {
         const superAdmins = await User.find({ role: Roles.SUPER_ADMIN });
         const recipients = new Set();
@@ -187,8 +209,12 @@ const getProjectTasks = async (req, res) => {
 
     let query = { project: projectId };
 
+    // Check if user is the project's manager
+    const project = await Project.findById(projectId);
+    const isProjectManager = project && project.manager && project.manager.toString() === userId.toString();
+
     // Filter based on user role
-    if (userRole === Roles.SUPER_ADMIN || userRole === Roles.PROJECT_MANAGER) {
+    if (userRole === Roles.SUPER_ADMIN || isProjectManager) {
       // Admins and PMs see all tasks in the project
     } else {
       // Team members see approved tasks OR tasks they created OR tasks assigned to them
@@ -226,15 +252,16 @@ const getAdminAllTasks = async (req, res) => {
 
     if (userRole === Roles.SUPER_ADMIN) {
       // Full visibility
-    } else if (userRole === Roles.PROJECT_MANAGER) {
-      // Filter projects they manage OR tasks they created
+    } else if (userRole === Roles.TEAM_MEMBER) {
+      // Filter projects they manage OR tasks they created OR tasks assigned to them
       const managedProjects = await Project.find({ manager: userId }).select('_id');
       const projectIds = managedProjects.map(p => p._id);
 
       query = {
         $or: [
           { project: { $in: projectIds } },
-          { createdBy: userId }
+          { createdBy: userId },
+          { assignedTo: userId }
         ]
       };
     } else {

@@ -140,8 +140,8 @@ export const useCreateTask = () => {
             const response = await api.post('/tasks', taskData);
             return response.data;
         },
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['tasks', variables.project] });
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
             queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
         },
     });
@@ -338,6 +338,19 @@ export const useUpdateUserRole = () => {
     return useMutation({
         mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
             const response = await api.put(`/team/${userId}/role`, { role });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['members'] });
+        },
+    });
+};
+
+export const useUpdateMemberPermissions = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ userId, permissions }: { userId: string; permissions: any }) => {
+            const response = await api.put(`/team/${userId}/permissions`, { permissions });
             return response.data;
         },
         onSuccess: () => {

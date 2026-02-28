@@ -1,11 +1,26 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+interface FeaturePermissions {
+    create: boolean;
+    read: boolean;
+    update: boolean;
+    delete: boolean;
+}
+
+interface Permissions {
+    projects: FeaturePermissions;
+    tasks: FeaturePermissions;
+    finance: FeaturePermissions;
+    team: FeaturePermissions;
+}
+
 interface User {
     id: string;
     name: string;
     email: string;
     role: string;
+    permissions?: Permissions;
 }
 
 interface AuthState {

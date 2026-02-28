@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
-const { Roles } = require('../config/global');
+
+const permissionFeatureSchema = {
+  create: { type: Boolean, default: false },
+  read: { type: Boolean, default: false },
+  update: { type: Boolean, default: false },
+  delete: { type: Boolean, default: false }
+};
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -17,8 +23,19 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: Object.values(Roles),
-    default: Roles.INHOUSE_TEAM
+    enum: ['SUPER_ADMIN', 'TEAM_MEMBER'],
+    default: 'TEAM_MEMBER'
+  },
+  permissions: {
+    projects: { ...permissionFeatureSchema },
+    tasks: { ...permissionFeatureSchema },
+    finance: { ...permissionFeatureSchema },
+    team: {
+      create: { type: Boolean, default: false },
+      read: { type: Boolean, default: false },
+      update: { type: Boolean, default: false },
+      delete: { type: Boolean, default: false }
+    }
   },
   isActive: {
     type: Boolean,

@@ -5,71 +5,172 @@ import {
     Search,
     Plus,
     UserCheck,
-    UserMinus,
-    Briefcase,
-    CreditCard,
-    Edit2,
     Trash2,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Shield,
+    Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTeam, useUpdateUserRole, useDeleteMember, useUpdateMember, useRegister } from '../../hooks/useApi';
+import { useTeam, useDeleteMember, useUpdateMember, useRegister, useUpdateMemberPermissions } from '../../hooks/useApi';
 import { useAuthStore } from '../../store/authStore';
 import { Loader2 } from 'lucide-react';
-import CustomSelect, { SelectOption } from '../../components/ui/CustomSelect';
 import { useDebounce } from '../../hooks/useDebounce';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import ActionMenu, { ActionMenuItem } from '../../components/ui/ActionMenu';
 
-const RoleDropdown: React.FC<{
-    value: string;
-    onChange: (role: string) => void;
-    isSuperAdmin: boolean;
-}> = ({ value, onChange, isSuperAdmin }) => {
-    const roles: SelectOption[] = [
-        { id: 'PROJECT_MANAGER', label: 'Project Manager', icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { id: 'INHOUSE_TEAM', label: 'Inhouse Team', icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        { id: 'OUTSOURCED_TEAM', label: 'Outsourced Team', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { id: 'FINANCE_TEAM', label: 'Finance Team', icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50' },
-    ];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-    if (!isSuperAdmin) {
-        const currentRole = roles.find(r => r.id === value) || roles[2];
-        const Icon = currentRole.icon;
-        return (
-            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ring-1 ring-inset ${currentRole.bg} ${currentRole.color} bg-opacity-40 ring-current`}>
-                {Icon && <Icon size={14} />}
-                <span>{currentRole.label}</span>
-            </div>
-        );
-    }
+interface FeaturePerms {
+    create: boolean;
+    read: boolean;
+    update: boolean;
+    delete: boolean;
+}
+
+interface Permissions {
+    projects: FeaturePerms;
+    tasks: FeaturePerms;
+    finance: FeaturePerms;
+    team: FeaturePerms;
+}
+
+const emptyPermissions = (): Permissions => ({
+    projects: { create: false, read: false, update: false, delete: false },
+    tasks: { create: false, read: false, update: false, delete: false },
+    finance: { create: false, read: false, update: false, delete: false },
+    team: { create: false, read: false, update: false, delete: false }
+});
+
+// ─── Permission Grid ──────────────────────────────────────────────────────────
+
+const FEATURES: { key: keyof Permissions; label: string; ops: (keyof FeaturePerms)[] }[] = [
+    { key: 'projects', label: 'Projects', ops: ['create', 'read', 'update', 'delete'] },
+    { key: 'tasks', label: 'Tasks', ops: ['create', 'read', 'update', 'delete'] },
+    { key: 'finance', label: 'Finance', ops: ['create', 'read', 'update', 'delete'] },
+    { key: 'team', label: 'Team', ops: ['read'] },
+];
+
+const OP_LABELS: Record<keyof FeaturePerms, string> = {
+    create: 'Create',
+    read: 'Read',
+    update: 'Update',
+    delete: 'Delete'
+};
+
+const PermissionsGrid: React.FC<{
+    permissions: Permissions;
+    onChange: (perms: Permissions) => void;
+}> = ({ permissions, onChange }) => {
+    const toggle = (feature: keyof Permissions, op: keyof FeaturePerms) => {
+        const updated = {
+            ...permissions,
+            [feature]: {
+                ...permissions[feature],
+                [op]: !permissions[feature][op]
+            }
+        };
+        // If "read" is being turned off, turn off create/update/delete too (can't write without read)
+        if (op === 'read' && !updated[feature].read) {
+            updated[feature] = { create: false, read: false, update: false, delete: false };
+        }
+        // If any write op is enabled, auto-enable read
+        if (op !== 'read' && updated[feature][op]) {
+            updated[feature].read = true;
+        }
+        onChange(updated);
+    };
 
     return (
-        <CustomSelect
-            options={roles}
-            value={value}
-            onChange={onChange}
-            className="w-[200px]"
-        />
+        <div className="border border-border rounded-xl overflow-hidden">
+            {/* Header row */}
+            <div className="grid grid-cols-5 bg-secondary-50 py-2 px-3 text-[11px] font-bold text-secondary-500 uppercase tracking-widest">
+                <div>Feature</div>
+                {(['create', 'read', 'update', 'delete'] as const).map(op => (
+                    <div key={op} className="text-center">{OP_LABELS[op]}</div>
+                ))}
+            </div>
+            {FEATURES.map((feature, fi) => (
+                <div
+                    key={feature.key}
+                    className={`grid grid-cols-5 py-3 px-3 items-center border-t border-border ${fi % 2 === 0 ? 'bg-card' : 'bg-secondary-50/30'}`}
+                >
+                    <div className="text-sm font-semibold text-secondary-800">{feature.label}</div>
+                    {(['create', 'read', 'update', 'delete'] as const).map(op => {
+                        const isSupported = feature.ops.includes(op);
+                        const checked = isSupported && permissions[feature.key][op];
+                        return (
+                            <div key={op} className="flex items-center justify-center">
+                                {isSupported ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggle(feature.key, op)}
+                                        className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-150
+                                            ${checked
+                                                ? 'bg-primary-600 border-primary-600 shadow-sm shadow-primary-500/30'
+                                                : 'border-secondary-300 hover:border-primary-400'
+                                            }`}
+                                    >
+                                        {checked && <Check size={12} className="text-white" strokeWidth={3} />}
+                                    </button>
+                                ) : (
+                                    <span className="w-6 h-6 flex items-center justify-center text-secondary-300">—</span>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            ))}
+        </div>
     );
 };
+
+// ─── Permission Summary Badge ─────────────────────────────────────────────────
+
+const PermissionSummary: React.FC<{ permissions: any }> = ({ permissions }) => {
+    if (!permissions) return <span className="text-xs text-secondary-400 italic">No permissions</span>;
+
+    const parts: string[] = [];
+    if (permissions.projects?.read) parts.push('Projects');
+    if (permissions.tasks?.read) parts.push('Tasks');
+    if (permissions.finance?.read) parts.push('Finance');
+    if (permissions.team?.read) parts.push('Team');
+
+    if (parts.length === 0) return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-secondary-100 text-secondary-500">
+            No Access
+        </span>
+    );
+
+    return (
+        <div className="flex flex-wrap gap-1">
+            {parts.map(p => (
+                <span key={p} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-primary-50 text-primary-700 ring-1 ring-primary-100">
+                    {p}
+                </span>
+            ))}
+        </div>
+    );
+};
+
+// ─── User Row ─────────────────────────────────────────────────────────────────
 
 const UserRow: React.FC<{
     user: any;
     index: number;
-    onRoleChange: (id: string, role: string) => void;
     onEdit: (user: any) => void;
     onDelete: (id: string) => void;
     isSuperAdmin: boolean;
-}> = ({ user, index, onRoleChange, onEdit, onDelete, isSuperAdmin }) => {
+}> = ({ user, index, onEdit, onDelete, isSuperAdmin }) => {
     const menuItems: ActionMenuItem[] = [];
-    if (isSuperAdmin) {
+    if (isSuperAdmin && user.role !== 'SUPER_ADMIN') {
         menuItems.push(
-            { id: 'edit', label: 'Edit Member', icon: Edit2, onClick: () => onEdit(user) },
+            { id: 'edit', label: 'Edit Permissions', icon: Shield, onClick: () => onEdit(user) },
             { id: 'delete', label: 'Remove Member', icon: Trash2, onClick: () => onDelete(user.id), destructive: true },
         );
     }
+
+    const isAdmin = user.role === 'SUPER_ADMIN';
 
     return (
         <motion.tr
@@ -80,11 +181,23 @@ const UserRow: React.FC<{
         >
             <td className="py-4 px-6">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold uppercase shadow-lg shadow-primary-500/20">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold uppercase shadow-lg
+                        ${isAdmin
+                            ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/20'
+                            : 'bg-gradient-to-br from-primary-400 to-primary-600 shadow-primary-500/20'
+                        }`}
+                    >
                         {user.name.charAt(0)}
                     </div>
                     <div>
-                        <p className="font-bold text-foreground">{user.name}</p>
+                        <div className="flex items-center gap-2">
+                            <p className="font-bold text-foreground">{user.name}</p>
+                            {isAdmin && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">
+                                    <Shield size={10} /> Admin
+                                </span>
+                            )}
+                        </div>
                         <p className="text-xs text-secondary-500 flex items-center gap-1">
                             <Mail size={12} /> {user.email}
                         </p>
@@ -92,16 +205,14 @@ const UserRow: React.FC<{
                 </div>
             </td>
             <td className="py-4 px-6">
-                <RoleDropdown
-                    value={user.role}
-                    onChange={(role) => onRoleChange(user.id, role)}
-                    isSuperAdmin={isSuperAdmin}
-                />
+                {isAdmin
+                    ? <span className="text-xs text-secondary-400 italic">Full access</span>
+                    : <PermissionSummary permissions={user.permissions} />
+                }
             </td>
             <td className="py-4 px-6">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${user.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                    }`}>
-                    {user.isActive ? 'ACTIVE' : 'INACTIVE'}
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${user.isActive !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {user.isActive !== false ? 'ACTIVE' : 'INACTIVE'}
                 </span>
             </td>
             <td className="py-4 px-6 text-right">
@@ -111,16 +222,19 @@ const UserRow: React.FC<{
     );
 };
 
+// ─── Team Page ──────────────────────────────────────────────────────────────
+
 const TeamPage: React.FC = () => {
     const { data: users, isLoading } = useTeam();
     const { user: currentUser } = useAuthStore();
-    const updateRoleMutation = useUpdateUserRole();
     const deleteMemberMutation = useDeleteMember();
+    const updatePermsMutation = useUpdateMemberPermissions();
 
-    const [roleFilter, setRoleFilter] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
     const [editingUser, setEditingUser] = useState<any>(null);
+    const [editPermissions, setEditPermissions] = useState<Permissions>(emptyPermissions());
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [invitePermissions, setInvitePermissions] = useState<Permissions>(emptyPermissions());
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [inviteSuccess, setInviteSuccess] = useState(false);
 
@@ -133,26 +247,43 @@ const TeamPage: React.FC = () => {
     const debouncedSearch = useDebounce(searchQuery, 300);
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
-    const handleRoleChange = (userId: string, role: string) => {
-        if (!isSuperAdmin) return;
-        updateRoleMutation.mutate({ userId, role });
+    const showToast = (message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
     };
 
     const handleEdit = (user: any) => {
         setEditingUser(user);
         editForm.setValue('name', user.name);
-        editForm.setValue('email', user.email);
-        editForm.setValue('role', user.role);
+        const p = user.permissions || emptyPermissions();
+        setEditPermissions({
+            projects: { create: !!p.projects?.create, read: !!p.projects?.read, update: !!p.projects?.update, delete: !!p.projects?.delete },
+            tasks: { create: !!p.tasks?.create, read: !!p.tasks?.read, update: !!p.tasks?.update, delete: !!p.tasks?.delete },
+            finance: { create: !!p.finance?.create, read: !!p.finance?.read, update: !!p.finance?.update, delete: !!p.finance?.delete },
+            team: { create: false, read: !!p.team?.read, update: false, delete: false }
+        });
     };
 
     const onEditSubmit = (data: any) => {
         if (!editingUser) return;
-        updateMemberMutation.mutate(
-            { userId: editingUser.id || editingUser._id, data },
+        const userId = editingUser.id || editingUser._id;
+
+        // Update name if changed
+        if (data.name !== editingUser.name) {
+            updateMemberMutation.mutate({ userId, data: { name: data.name } });
+        }
+
+        // Update permissions
+        updatePermsMutation.mutate(
+            { userId, permissions: editPermissions },
             {
                 onSuccess: () => {
                     setEditingUser(null);
                     editForm.reset();
+                    showToast('Member updated successfully!', 'success');
+                },
+                onError: (err: any) => {
+                    showToast(err.response?.data?.message || 'Failed to update member', 'error');
                 }
             }
         );
@@ -160,7 +291,7 @@ const TeamPage: React.FC = () => {
 
     const onInviteSubmit = (data: any) => {
         registerMutation.mutate(
-            data,
+            { name: data.name, email: data.email, permissions: invitePermissions },
             {
                 onSuccess: () => {
                     setInviteSuccess(true);
@@ -168,13 +299,12 @@ const TeamPage: React.FC = () => {
                         setIsInviteModalOpen(false);
                         setInviteSuccess(false);
                         inviteForm.reset();
-                        setToast({ message: 'Member invited successfully!', type: 'success' });
-                        setTimeout(() => setToast(null), 3000);
+                        setInvitePermissions(emptyPermissions());
+                        showToast('Member invited successfully!', 'success');
                     }, 2000);
                 },
                 onError: (err: any) => {
-                    setToast({ message: err.response?.data?.message || 'Failed to invite member', type: 'error' });
-                    setTimeout(() => setToast(null), 3000);
+                    showToast(err.response?.data?.message || 'Failed to invite member', 'error');
                 }
             }
         );
@@ -183,31 +313,15 @@ const TeamPage: React.FC = () => {
     const handleDelete = (userId: string) => {
         if (!isSuperAdmin) return;
         deleteMemberMutation.mutate(userId, {
-            onSuccess: () => {
-                setToast({ message: 'Member removed successfully', type: 'success' });
-                setTimeout(() => setToast(null), 3000);
-            },
-            onError: (err: any) => {
-                setToast({ message: err.response?.data?.message || 'Failed to remove member', type: 'error' });
-                setTimeout(() => setToast(null), 3000);
-            }
+            onSuccess: () => showToast('Member removed successfully', 'success'),
+            onError: (err: any) => showToast(err.response?.data?.message || 'Failed to remove member', 'error')
         });
     };
 
-    const roles: SelectOption[] = [
-        { id: 'ALL', label: 'All Roles', icon: Users, color: 'text-secondary-600', bg: 'bg-secondary-50' },
-        { id: 'PROJECT_MANAGER', label: 'Project Manager', icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { id: 'INHOUSE_TEAM', label: 'Inhouse Team', icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        { id: 'OUTSOURCED_TEAM', label: 'Outsourced Team', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { id: 'FINANCE_TEAM', label: 'Finance Team', icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50' },
-    ];
-
     const filteredUsers = users?.filter((u: any) => {
-        if (u.role === 'SUPER_ADMIN') return false;
-        const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
         const matchesSearch = u.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
             u.email.toLowerCase().includes(debouncedSearch.toLowerCase());
-        return matchesRole && matchesSearch;
+        return matchesSearch;
     });
 
     if (isLoading) {
@@ -220,8 +334,7 @@ const TeamPage: React.FC = () => {
 
     const stats = {
         total: users?.length || 0,
-        active: users?.filter((u: any) => u.isActive).length || 0,
-        pending: 0 // Logic for pending invites if added
+        active: users?.filter((u: any) => u.isActive !== false).length || 0,
     };
 
     return (
@@ -229,7 +342,7 @@ const TeamPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Team Members</h1>
-                    <p className="text-secondary-500 mt-1">Manage users, roles, and permissions.</p>
+                    <p className="text-secondary-500 mt-1">Manage users and their feature permissions.</p>
                 </div>
                 {isSuperAdmin && (
                     <button
@@ -242,54 +355,37 @@ const TeamPage: React.FC = () => {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {/* Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
                     <div className="flex items-center gap-4 mb-2">
-                        <div className="p-3 bg-primary-50 rounded-xl text-primary-600">
-                            <Users size={24} />
-                        </div>
+                        <div className="p-3 bg-primary-50 rounded-xl text-primary-600"><Users size={24} /></div>
                         <h3 className="font-bold text-2xl">{stats.total}</h3>
                     </div>
                     <p className="text-secondary-500 text-sm">Total Members</p>
                 </div>
                 <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
                     <div className="flex items-center gap-4 mb-2">
-                        <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-                            <UserCheck size={24} />
-                        </div>
+                        <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600"><UserCheck size={24} /></div>
                         <h3 className="font-bold text-2xl">{stats.active}</h3>
                     </div>
-                    <p className="text-secondary-500 text-sm">Active Now</p>
-                </div>
-                <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                    <div className="flex items-center gap-4 mb-2">
-                        <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
-                            <UserMinus size={24} />
-                        </div>
-                        <h3 className="font-bold text-2xl">{stats.pending}</h3>
-                    </div>
-                    <p className="text-secondary-500 text-sm">Pending Submissions</p>
+                    <p className="text-secondary-500 text-sm">Active Members</p>
                 </div>
             </div>
 
+            {/* Table */}
             <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-border flex flex-col md:flex-row gap-4 items-center">
-                    <div className="relative flex-1 w-full">
+                <div className="p-6 border-b border-border">
+                    <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
                         <input
                             type="text"
-                            placeholder="Search members..."
+                            placeholder="Search members by name or email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 bg-secondary-100 hover:bg-secondary-200 focus:bg-white border-transparent focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl transition-all outline-none text-sm"
                         />
                     </div>
-                    <CustomSelect
-                        options={roles}
-                        value={roleFilter}
-                        onChange={setRoleFilter}
-                        className="w-full md:w-[220px]"
-                    />
                 </div>
 
                 <div className="overflow-x-auto">
@@ -297,7 +393,7 @@ const TeamPage: React.FC = () => {
                         <thead>
                             <tr className="bg-secondary-50 text-secondary-600 text-xs font-bold uppercase tracking-wider">
                                 <th className="py-4 px-6">Member</th>
-                                <th className="py-4 px-6">Role</th>
+                                <th className="py-4 px-6">Permissions</th>
                                 <th className="py-4 px-6">Status</th>
                                 <th className="py-4 px-6 text-right">Actions</th>
                             </tr>
@@ -308,7 +404,6 @@ const TeamPage: React.FC = () => {
                                     key={u.id}
                                     user={u}
                                     index={index}
-                                    onRoleChange={handleRoleChange}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
                                     isSuperAdmin={isSuperAdmin}
@@ -317,7 +412,7 @@ const TeamPage: React.FC = () => {
                             {filteredUsers?.length === 0 && (
                                 <tr>
                                     <td colSpan={4} className="py-20 text-center text-secondary-500 italic">
-                                        No members found matching your search.
+                                        No members found.
                                     </td>
                                 </tr>
                             )}
@@ -332,18 +427,18 @@ const TeamPage: React.FC = () => {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border p-8"
+                        className="bg-card w-full max-w-xl rounded-2xl shadow-2xl border border-border p-8 max-h-[90vh] overflow-y-auto"
                     >
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold">Edit Member</h2>
-                            <button
-                                onClick={() => setEditingUser(null)}
-                                className="text-secondary-400 hover:text-secondary-600 transition-colors"
-                            >
+                            <div>
+                                <h2 className="text-2xl font-bold">Edit Member</h2>
+                                <p className="text-sm text-secondary-500 mt-0.5">{editingUser.name} — {editingUser.email}</p>
+                            </div>
+                            <button onClick={() => setEditingUser(null)} className="text-secondary-400 hover:text-secondary-600 transition-colors">
                                 <Plus size={24} className="rotate-45" />
                             </button>
                         </div>
-                        <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                        <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium mb-1">Full Name</label>
                                 <input
@@ -352,47 +447,23 @@ const TeamPage: React.FC = () => {
                                 />
                                 {editForm.formState.errors.name && <p className="text-red-500 text-xs mt-1">{editForm.formState.errors.name?.message as string}</p>}
                             </div>
+
                             <div>
-                                <label className="block text-sm font-medium mb-1">Email Address</label>
-                                <input
-                                    {...editForm.register('email', {
-                                        required: 'Email is required',
-                                        pattern: { value: /^\S+@\S+$/i, message: 'Invalid email' }
-                                    })}
-                                    className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
-                                />
-                                {editForm.formState.errors.email && <p className="text-red-500 text-xs mt-1">{editForm.formState.errors.email?.message as string}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-1.5 ml-1">
-                                    Member Role
+                                <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-3">
+                                    Feature Permissions
                                 </label>
-                                <Controller
-                                    name="role"
-                                    control={editForm.control}
-                                    rules={{ required: 'Role is required' }}
-                                    render={({ field }) => (
-                                        <CustomSelect
-                                            options={roles.filter(r => r.id !== 'ALL' && r.id !== 'SUPER_ADMIN')}
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                        />
-                                    )}
-                                />
+                                <PermissionsGrid permissions={editPermissions} onChange={setEditPermissions} />
                             </div>
-                            <div className="flex justify-end gap-3 mt-8">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingUser(null)}
-                                    className="px-6 py-2 rounded-xl font-semibold hover:bg-secondary-100 transition-colors"
-                                >
+
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button type="button" onClick={() => setEditingUser(null)} className="px-6 py-2 rounded-xl font-semibold hover:bg-secondary-100 transition-colors">
                                     Cancel
                                 </button>
                                 <button
-                                    disabled={updateMemberMutation.isPending}
+                                    disabled={updatePermsMutation.isPending}
                                     className="bg-primary-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-primary-700 transition-all flex items-center gap-2"
                                 >
-                                    {updateMemberMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : 'Update Member'}
+                                    {updatePermsMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : 'Save Changes'}
                                 </button>
                             </div>
                         </form>
@@ -406,18 +477,18 @@ const TeamPage: React.FC = () => {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border p-8"
+                        className="bg-card w-full max-w-xl rounded-2xl shadow-2xl border border-border p-8 max-h-[90vh] overflow-y-auto"
                     >
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold">Invite New Member</h2>
-                            <button
-                                onClick={() => setIsInviteModalOpen(false)}
-                                className="text-secondary-400 hover:text-secondary-600 transition-colors"
-                            >
+                            <div>
+                                <h2 className="text-2xl font-bold">Invite New Member</h2>
+                                <p className="text-sm text-secondary-500 mt-0.5">They'll receive an email with a temporary password.</p>
+                            </div>
+                            <button onClick={() => { setIsInviteModalOpen(false); inviteForm.reset(); setInvitePermissions(emptyPermissions()); }} className="text-secondary-400 hover:text-secondary-600 transition-colors">
                                 <Plus size={24} className="rotate-45" />
                             </button>
                         </div>
-                        <form onSubmit={inviteForm.handleSubmit(onInviteSubmit)} className="space-y-4">
+                        <form onSubmit={inviteForm.handleSubmit(onInviteSubmit)} className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium mb-1">Full Name</label>
                                 <input
@@ -439,33 +510,20 @@ const TeamPage: React.FC = () => {
                                 />
                                 {inviteForm.formState.errors.email && <p className="text-red-500 text-xs mt-1">{inviteForm.formState.errors.email?.message as string}</p>}
                             </div>
-                            <div className="space-y-2">
-                                <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-1.5 ml-1">
-                                    Assign Role
+
+                            <div>
+                                <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <Shield size={12} />
+                                    Assign Permissions
                                 </label>
-                                <Controller
-                                    name="role"
-                                    control={inviteForm.control}
-                                    defaultValue="INHOUSE_TEAM"
-                                    rules={{ required: 'Role is required' }}
-                                    render={({ field }) => (
-                                        <CustomSelect
-                                            options={roles.filter(r => r.id !== 'ALL' && r.id !== 'SUPER_ADMIN')}
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                        />
-                                    )}
-                                />
+                                <PermissionsGrid permissions={invitePermissions} onChange={setInvitePermissions} />
+                                <p className="text-[10px] text-secondary-400 italic mt-2">
+                                    * Enabling write permissions (Create/Update/Delete) automatically grants Read access.
+                                </p>
                             </div>
-                            <p className="text-[10px] text-secondary-400 italic">
-                                * A temporary password will be automatically generated and sent via email.
-                            </p>
-                            <div className="flex justify-end gap-3 mt-8">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsInviteModalOpen(false)}
-                                    className="px-6 py-2 rounded-xl font-semibold hover:bg-secondary-100 transition-colors"
-                                >
+
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button type="button" onClick={() => { setIsInviteModalOpen(false); inviteForm.reset(); setInvitePermissions(emptyPermissions()); }} className="px-6 py-2 rounded-xl font-semibold hover:bg-secondary-100 transition-colors">
                                     Cancel
                                 </button>
                                 <button

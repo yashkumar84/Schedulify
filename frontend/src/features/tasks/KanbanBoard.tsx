@@ -8,17 +8,17 @@ import {
     Clock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useTasks, useProjects, useCreateTask, useUpdateTask, useDeleteTask, useAddComment } from '../../hooks/useApi';
+import { useTasks, useProjects, useCreateTask, useUpdateTask, useDeleteTask, useAddComment, useTeam } from '../../hooks/useApi';
 import {
     Plus,
-    CheckSquare,
     Loader2,
     AlertCircle as AlertIcon,
     Briefcase,
     Shield,
     Zap,
     AlertCircle,
-    Clock as ClockIcon
+    Clock as ClockIcon,
+    Users
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import CustomSelect, { SelectOption } from '../../components/ui/CustomSelect';
@@ -47,15 +47,28 @@ interface Task {
         name: string;
         role: string;
     };
+    assignedTo?: {
+        _id: string;
+        name: string;
+    };
     rejectionReason?: string;
 }
 
 const TaskCard: React.FC<{ task: Task; onClick?: () => void }> = ({ task, onClick }) => {
+    const handleDragStart = (e: React.DragEvent) => {
+        e.dataTransfer.setData('taskId', task._id);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
     const priorityColors: Record<string, string> = {
         low: 'bg-blue-100 text-blue-700',
         medium: 'bg-amber-100 text-amber-700',
         high: 'bg-orange-100 text-orange-700',
         urgent: 'bg-red-100 text-red-700',
+        LOW: 'bg-blue-100 text-blue-700',
+        MEDIUM: 'bg-amber-100 text-amber-700',
+        HIGH: 'bg-orange-100 text-orange-700',
+        URGENT: 'bg-red-100 text-red-700',
     };
 
     return (
@@ -63,50 +76,66 @@ const TaskCard: React.FC<{ task: Task; onClick?: () => void }> = ({ task, onClic
             layout
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-card p-4 rounded-xl border border-border mt-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer group relative"
-            onClick={onClick}
         >
-            <div className="flex justify-between items-start mb-2 gap-2">
-                <div className="flex gap-2 flex-wrap">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${priorityColors[task.priority] || 'bg-secondary-100 text-secondary-700'}`}>
-                        {task.priority}
-                    </span>
-                    {task.approvalStatus && task.approvalStatus !== 'approved' && (
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${task.approvalStatus === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                            }`}>
-                            {task.approvalStatus === 'pending' ? '⏳ Pending' : '❌ Rejected'}
+            <div
+                draggable
+                onDragStart={handleDragStart}
+                className="bg-card p-4 rounded-xl border border-border mt-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer group relative active:cursor-grabbing"
+                onClick={onClick}
+            >
+                <div className="flex justify-between items-start mb-2 gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${priorityColors[task.priority] || 'bg-secondary-100 text-secondary-700'}`}>
+                            {task.priority}
                         </span>
-                    )}
-                </div>
-                <button
-                    onClick={(e) => { e.stopPropagation(); }}
-                    className="text-secondary-400 group-hover:text-secondary-600"
-                >
-                    <MoreVertical size={16} />
-                </button>
-            </div>
-
-            <h4 className="text-sm font-semibold mb-3 group-hover:text-primary-600 transition-colors">{task.title}</h4>
-
-            <div className="flex items-center justify-between text-secondary-500">
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                        <MessageCircle size={14} />
-                        <span className="text-[10px]">{task.commentsCount || task.comments?.length || 0}</span>
+                        {task.approvalStatus && task.approvalStatus !== 'approved' && (
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${task.approvalStatus === 'pending'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                                }`}>
+                                {task.approvalStatus === 'pending' ? '⏳ Pending' : '❌ Rejected'}
+                            </span>
+                        )}
                     </div>
-                    <div className="flex items-center gap-1">
-                        <Paperclip size={14} />
-                        <span className="text-[10px]">{task.filesCount || task.files?.length || 0}</span>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); }}
+                        className="text-secondary-400 group-hover:text-secondary-600"
+                    >
+                        <MoreVertical size={16} />
+                    </button>
+                </div>
+
+                <h4 className="text-sm font-semibold mb-3 group-hover:text-primary-600 transition-colors">{task.title}</h4>
+
+                <div className="flex items-center justify-between text-secondary-500">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                            <MessageCircle size={14} />
+                            <span className="text-[10px]">{task.commentsCount || task.comments?.length || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Paperclip size={14} />
+                            <span className="text-[10px]">{task.filesCount || task.files?.length || 0}</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px]">
+                        <Clock size={14} />
+                        <span>{task.dueDate && !isNaN(new Date(task.dueDate).getTime())
+                            ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                            : 'No date'}</span>
                     </div>
                 </div>
-                <div className="flex items-center gap-1 text-[10px]">
-                    <Clock size={14} />
-                    <span>{task.dueDate && !isNaN(new Date(task.dueDate).getTime())
-                        ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                        : 'No date'}</span>
-                </div>
+
+                {task.assignedTo && (
+                    <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                            <div className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-[8px] font-bold flex-shrink-0">
+                                {task.assignedTo.name?.charAt(0) || 'U'}
+                            </div>
+                            <span className="text-[10px] text-secondary-500 truncate">{task.assignedTo.name}</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </motion.div>
     );
@@ -118,52 +147,78 @@ const KanbanColumn: React.FC<{
     tasks: Task[];
     onAddTask: (status: TaskStatus) => void;
     onTaskClick: (task: Task) => void;
+    onDrop: (taskId: string, newStatus: TaskStatus) => void;
     canAdd: boolean;
-}> = ({ title, status, tasks, onAddTask, onTaskClick, canAdd }) => (
-    <div className="bg-secondary-50/50 rounded-2xl p-4 flex flex-col min-h-[500px] border border-transparent hover:border-border transition-colors">
-        <div className="flex items-center justify-between mb-4 px-2">
-            <div className="flex items-center gap-2">
-                <h3 className="font-bold text-secondary-900">{title}</h3>
-                <span className="bg-white px-2 py-0.5 rounded-full text-xs font-bold text-secondary-500 shadow-sm border border-border">
-                    {tasks.length}
-                </span>
-            </div>
-            {canAdd && (
-                <button
-                    onClick={() => onAddTask(status)}
-                    className="p-1 hover:bg-white rounded-lg transition-colors text-secondary-500 hover:text-primary-600"
-                >
-                    <Plus size={18} />
-                </button>
-            )}
-        </div>
+}> = ({ title, status, tasks, onAddTask, onTaskClick, onDrop, canAdd }) => {
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
 
-        <div className="flex-1 space-y-3">
-            {tasks.map(task => (
-                <TaskCard key={task._id} task={task} onClick={() => onTaskClick(task)} />
-            ))}
-            {canAdd && (
-                <button
-                    onClick={() => onAddTask(status)}
-                    className="w-full py-2 border-2 border-dashed border-secondary-200 rounded-xl text-secondary-400 text-sm font-medium hover:bg-white hover:border-primary-300 hover:text-primary-500 transition-all mt-2"
-                >
-                    + Add Task
-                </button>
-            )}
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        const taskId = e.dataTransfer.getData('taskId');
+        if (taskId) {
+            onDrop(taskId, status);
+        }
+    };
+
+    return (
+        <div
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className="bg-secondary-50/50 rounded-2xl p-4 flex flex-col min-h-[500px] border border-transparent hover:border-border transition-colors group/column"
+        >
+            <div className="flex items-center justify-between mb-4 px-2">
+                <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-secondary-900">{title}</h3>
+                    <span className="bg-white px-2 py-0.5 rounded-full text-xs font-bold text-secondary-500 shadow-sm border border-border">
+                        {tasks.length}
+                    </span>
+                </div>
+                {canAdd && (
+                    <button
+                        onClick={() => onAddTask(status)}
+                        className="p-1 hover:bg-white rounded-lg transition-colors text-secondary-500 hover:text-primary-600"
+                    >
+                        <Plus size={18} />
+                    </button>
+                )}
+            </div>
+
+            <div className="flex-1 space-y-3">
+                {tasks.map(task => (
+                    <TaskCard key={task._id} task={task} onClick={() => onTaskClick(task)} />
+                ))}
+                {canAdd && (
+                    <button
+                        onClick={() => onAddTask(status)}
+                        className="w-full py-2 border-2 border-dashed border-secondary-200 rounded-xl text-secondary-400 text-sm font-medium hover:bg-white hover:border-primary-300 hover:text-primary-500 transition-all mt-2"
+                    >
+                        + Add Task
+                    </button>
+                )}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 const KanbanBoard: React.FC = () => {
+    const { user } = useAuthStore();
     const { data: projects } = useProjects();
+    const { data: teamMembers } = useTeam();
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [selectedTask, setSelectedTask] = useState<any>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
+    const activeProject = projects?.find((p: any) => p._id === selectedProjectId || p.id === selectedProjectId);
+    const isProjectManager = activeProject?.manager === user?.id || activeProject?.manager?._id === user?.id;
+    const isAdmin = user?.role === 'SUPER_ADMIN';
+
     // Auto-select first project
     React.useEffect(() => {
         if (projects && projects.length > 0 && !selectedProjectId) {
-            setSelectedProjectId(projects[0]._id);
+            setSelectedProjectId(projects[0].id || projects[0]._id);
         }
     }, [projects, selectedProjectId]);
 
@@ -218,6 +273,22 @@ const KanbanBoard: React.FC = () => {
         return addCommentMutation.mutateAsync({ taskId, text });
     };
 
+    const handleDrop = (taskId: string, newStatus: TaskStatus) => {
+        const task = tasks?.find((t: any) => t._id === taskId);
+        if (!task || task.status === newStatus) return;
+
+        // Restriction check: Only Admin or Project Manager can mark as completed
+        if (newStatus === TaskStatus.COMPLETED && !isAdmin && !isProjectManager) {
+            alert('Only an Admin or the Project Manager can mark tasks as completed.');
+            return;
+        }
+
+        const rk = window.prompt('Please enter a remark (RK) for this status change:');
+        if (rk === null) return; // User cancelled the prompt
+
+        handleUpdateTask(taskId, { status: newStatus, rk });
+    };
+
     const columns = [
         { title: 'To Do', status: TaskStatus.TODO },
         { title: 'In Progress', status: TaskStatus.IN_PROGRESS },
@@ -230,8 +301,8 @@ const KanbanBoard: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const { user } = useAuthStore();
-    const canAddTask = user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER';
+
+    const canAddTask = !!(user?.role === 'SUPER_ADMIN' || user?.permissions?.tasks?.create);
 
     if (isLoading) {
         return (
@@ -252,7 +323,7 @@ const KanbanBoard: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <CustomSelect
                         options={projects?.map((p: any) => ({
-                            id: p._id,
+                            id: p.id || p._id,
                             label: p.name,
                             icon: Briefcase,
                             color: 'text-primary-600',
@@ -282,9 +353,14 @@ const KanbanBoard: React.FC = () => {
                             <KanbanColumn
                                 title={column.title}
                                 status={column.status}
-                                tasks={tasks?.filter((t: any) => t.status === column.status) || []}
+                                tasks={tasks?.filter((t: any) => {
+                                    const tStatus = t.status?.toLowerCase()?.replace('_', '-');
+                                    const colStatus = column.status?.toLowerCase()?.replace('_', '-');
+                                    return tStatus === colStatus;
+                                }) || []}
                                 onAddTask={handleAddTask}
                                 onTaskClick={handleTaskClick}
+                                onDrop={handleDrop}
                                 canAdd={canAddTask}
                             />
                         </div>
@@ -350,6 +426,27 @@ const KanbanBoard: React.FC = () => {
                                     {...register('dueDate')}
                                     type="date"
                                     className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium mb-1">Assign To</label>
+                                <Controller
+                                    name="assignedTo"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <CustomSelect
+                                            options={teamMembers?.map((member: any) => ({
+                                                id: member._id,
+                                                label: member.name,
+                                                icon: Users,
+                                                color: 'text-primary-600',
+                                                bg: 'bg-primary-50'
+                                            })) || []}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Select member"
+                                        />
+                                    )}
                                 />
                             </div>
                             <div className="flex justify-end gap-3 mt-8">

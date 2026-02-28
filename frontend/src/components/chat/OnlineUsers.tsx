@@ -25,10 +25,8 @@ const OnlineUsers: React.FC<OnlineUsersProps> = ({ users }) => {
         switch (role) {
             case 'SUPER_ADMIN':
                 return 'bg-rose-100 text-rose-600';
-            case 'PROJECT_MANAGER':
+            case 'TEAM_MEMBER':
                 return 'bg-blue-100 text-blue-600';
-            case 'FINANCE_TEAM':
-                return 'bg-green-100 text-green-600';
             default:
                 return 'bg-secondary-100 text-secondary-600';
         }

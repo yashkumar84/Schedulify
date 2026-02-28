@@ -43,7 +43,7 @@ const ProjectCard: React.FC<{
 }> = ({ project, index, onEdit, onDelete }) => {
     const navigate = useNavigate();
     const { user } = useAuthStore();
-    const isAuthorized = user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER';
+    const isAuthorized = user?.role === 'SUPER_ADMIN' || user?.permissions?.projects?.update;
 
     const menuItems: ActionMenuItem[] = [
         { id: 'edit', label: 'Edit Project', icon: Edit2, onClick: () => onEdit(project) },
@@ -159,7 +159,7 @@ const ProjectListPage: React.FC = () => {
         // RBAC logic from backend:
         // PM creates -> they are forced as manager
         // Admin creates -> they choose a manager
-        if (currentUserRole === 'PROJECT_MANAGER') {
+        if (currentUser?.permissions?.projects?.create) {
             managerId = currentUser.id || currentUser._id;
         } else if (currentUserRole === 'SUPER_ADMIN') {
             if (!managerId) {
@@ -174,7 +174,7 @@ const ProjectListPage: React.FC = () => {
         const payload = {
             ...data,
             manager: managerId,
-            collaborators: data.collaborators || [],
+            collaborators: (data.collaborators || []).filter((c: any) => c !== managerId),
             status: ProjectStatus.NOT_STARTED,
             startDate: data.startDate || new Date().toISOString(),
             clientName: data.clientName || 'Default Client'
@@ -253,7 +253,7 @@ const ProjectListPage: React.FC = () => {
                     <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Projects</h1>
                     <p className="text-secondary-500 mt-1">Manage and track all your active projects.</p>
                 </div>
-                {(user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER') && (
+                {(user?.role === 'SUPER_ADMIN' || user?.permissions?.projects?.create) && (
                     <button
                         onClick={() => setIsModalOpen(true)}
                         className="flex items-center justify-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all font-mono tracking-tighter"
@@ -375,7 +375,7 @@ const ProjectListPage: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="py-4 px-6 text-right">
-                                        {(user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER') && (
+                                        {(user?.role === 'SUPER_ADMIN' || user?.permissions?.projects?.read) && (
                                             <ActionMenu items={[
                                                 { id: 'view', label: 'View Details', icon: ChevronRight, onClick: () => navigate(`/projects/${project._id || project.id}`) },
                                                 { id: 'edit', label: 'Edit', icon: Edit2, onClick: () => handleEdit(project) },
@@ -475,12 +475,12 @@ const ProjectListPage: React.FC = () => {
                                             rules={{ required: 'Manager is required' }}
                                             render={({ field }) => (
                                                 <CustomSelect
-                                                    options={members?.filter((m: any) => m.role === 'PROJECT_MANAGER').map((m: any) => ({
+                                                    options={members?.map((m: any) => ({
                                                         id: m.id || m._id,
                                                         label: m.name,
                                                         icon: Briefcase,
-                                                        color: 'text-blue-600',
-                                                        bg: 'bg-blue-50'
+                                                        color: m.role === 'SUPER_ADMIN' ? 'text-amber-600' : 'text-blue-600',
+                                                        bg: m.role === 'SUPER_ADMIN' ? 'bg-amber-50' : 'bg-blue-50'
                                                     })) || []}
                                                     value={field.value}
                                                     onChange={field.onChange}
@@ -517,20 +517,23 @@ const ProjectListPage: React.FC = () => {
                                         name="collaborators"
                                         control={control}
                                         defaultValue={[]}
-                                        render={({ field }) => (
-                                            <MultiSelect
-                                                options={members?.filter((m: any) => m.role !== 'SUPER_ADMIN' && m.role !== 'PROJECT_MANAGER').map((m: any) => ({
-                                                    id: m.id || m._id,
-                                                    label: m.name,
-                                                    icon: Users,
-                                                    color: 'text-primary-600',
-                                                    bg: 'bg-primary-50'
-                                                })) || []}
-                                                value={field.value}
-                                                onChange={field.onChange}
-                                                placeholder="Assign team members..."
-                                            />
-                                        )}
+                                        render={({ field }) => {
+                                            const selectedManager = control._formValues.manager;
+                                            return (
+                                                <MultiSelect
+                                                    options={members?.filter((m: any) => (m.id || m._id) !== selectedManager).map((m: any) => ({
+                                                        id: m.id || m._id,
+                                                        label: m.name,
+                                                        icon: Users,
+                                                        color: m.role === 'SUPER_ADMIN' ? 'text-amber-600' : 'text-primary-600',
+                                                        bg: m.role === 'SUPER_ADMIN' ? 'bg-amber-50' : 'bg-primary-50'
+                                                    })) || []}
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Assign team members..."
+                                                />
+                                            );
+                                        }}
                                     />
                                 </div>
                             </div>{/* end scrollable body */}

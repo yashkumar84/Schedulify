@@ -247,9 +247,9 @@ const ProjectDetailPage: React.FC = () => {
                         <MessageCircle size={18} />
                         Chat
                     </button>
-                    {(user?.role !== 'OUTSOURCED_TEAM') && (
+                    {(!user?.permissions?.team?.read) && (
                         <>
-                            {(user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER') && (
+                            {(user?.role === 'SUPER_ADMIN' || user?.permissions?.projects?.update) && (
                                 <button
                                     onClick={handleEditProject}
                                     className="px-5 py-2.5 bg-card border border-border rounded-xl font-semibold hover:bg-secondary-50 transition-colors text-sm"
@@ -354,7 +354,7 @@ const ProjectDetailPage: React.FC = () => {
                                     <p className="text-sm text-secondary-500 mt-1">People working on this project</p>
                                 </div>
                                 <span className="bg-primary-100 text-primary-600 px-3 py-1 rounded-full text-xs font-bold">
-                                    {(project.manager ? 1 : 0) + (project.collaborators?.length || 0)} Members
+                                    {(project.manager ? 1 : 0) + (project.collaborators?.filter((c: any) => (c.id || c._id || c) !== (project.manager?.id || project.manager?._id || project.manager))?.length || 0)} Members
                                 </span>
                             </div>
                             <div className="space-y-3">
@@ -374,7 +374,7 @@ const ProjectDetailPage: React.FC = () => {
                                         </span>
                                     </div>
                                 )}
-                                {project.collaborators?.map((member: any) => (
+                                {project.collaborators?.filter((member: any) => (member.id || member._id || member) !== (project.manager?.id || project.manager?._id || project.manager)).map((member: any) => (
                                     <div key={member.id || member._id} className="flex items-center justify-between p-3 bg-white border border-border rounded-xl">
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-full bg-secondary-100 flex items-center justify-center text-secondary-600 font-bold">
@@ -488,7 +488,7 @@ const ProjectDetailPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="py-4 px-6 text-right">
-                                                {(user?.role === 'SUPER_ADMIN' || user?.role === 'PROJECT_MANAGER') && (
+                                                {(user?.role === 'SUPER_ADMIN' || user?.permissions?.tasks?.delete) && (
                                                     <ActionMenu items={menuItems} />
                                                 )}
                                             </td>
@@ -564,12 +564,12 @@ const ProjectDetailPage: React.FC = () => {
                                     control={editForm.control}
                                     render={({ field }) => (
                                         <MultiSelect
-                                            options={teamMembers?.filter((m: any) => m.role !== 'SUPER_ADMIN' && m.role !== 'PROJECT_MANAGER').map((m: any) => ({
+                                            options={teamMembers?.filter((m: any) => (m.id || m._id) !== (project.manager?.id || project.manager?._id || project.manager)).map((m: any) => ({
                                                 id: m.id || m._id,
                                                 label: m.name,
                                                 icon: Users,
-                                                color: 'text-primary-600',
-                                                bg: 'bg-primary-50'
+                                                color: m.role === 'SUPER_ADMIN' ? 'text-amber-600' : 'text-primary-600',
+                                                bg: m.role === 'SUPER_ADMIN' ? 'bg-amber-50' : 'bg-primary-50'
                                             })) || []}
                                             value={field.value}
                                             onChange={field.onChange}
@@ -628,11 +628,11 @@ const ProjectDetailPage: React.FC = () => {
                                 <label className="block text-sm font-medium mb-1">Assign To</label>
                                 <Controller name="assignedTo" control={taskForm.control} render={({ field }) => (
                                     <CustomSelect options={teamMembers?.map((member: any) => ({
-                                        id: member._id,
+                                        id: member.id || member._id,
                                         label: member.name,
                                         icon: Users,
-                                        color: 'text-primary-600',
-                                        bg: 'bg-primary-50'
+                                        color: member.role === 'SUPER_ADMIN' ? 'text-amber-600' : 'text-primary-600',
+                                        bg: member.role === 'SUPER_ADMIN' ? 'bg-amber-50' : 'bg-primary-50'
                                     })) || []} value={field.value} onChange={field.onChange} />
                                 )} />
                             </div>

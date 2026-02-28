@@ -1,10 +1,11 @@
 const Message = require('../models/Message');
 const Project = require('../models/Project');
+const { Roles } = require('../config/global');
 
 // @desc    Get messages for a project
 // @route   GET /api/chat/:projectId/messages
 // @access  Private (Project members only)
-const getProjectMessages = async(req, res) => {
+const getProjectMessages = async (req, res) => {
   try {
     const { projectId } = req.params;
     const { limit = 50, before } = req.query;
@@ -40,7 +41,7 @@ const getProjectMessages = async(req, res) => {
 // @desc    Create a message (fallback for non-socket)
 // @route   POST /api/chat/:projectId/messages
 // @access  Private (Project members only)
-const createMessage = async(req, res) => {
+const createMessage = async (req, res) => {
   try {
     const { projectId } = req.params;
     const { content, type = 'text' } = req.body;
@@ -72,7 +73,7 @@ const createMessage = async(req, res) => {
 // @desc    Delete a message
 // @route   DELETE /api/chat/messages/:messageId
 // @access  Private (Message sender or Admin)
-const deleteMessage = async(req, res) => {
+const deleteMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
     const userId = req.user._id;
@@ -83,10 +84,13 @@ const deleteMessage = async(req, res) => {
       return res.status(404).json({ message: 'Message not found' });
     }
 
-    // Check if user is sender or admin
+    // Check if user is the project lead (manager)
+    const isProjectManager = project && project.manager && project.manager.toString() === userId.toString();
+
+    // Check if user is sender, super admin, or project lead
     if (message.sender.toString() !== userId.toString() &&
-            userRole !== 'SUPER_ADMIN' &&
-            userRole !== 'PROJECT_MANAGER') {
+      userRole !== Roles.SUPER_ADMIN &&
+      !isProjectManager) {
       return res.status(403).json({ message: 'Not authorized to delete this message' });
     }
 

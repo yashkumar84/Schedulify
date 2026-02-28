@@ -71,7 +71,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             title: task.title,
             description: task.description,
             dueDate: formatDate(task.dueDate),
-            assignedTo: task.assignedTo?._id || task.assignedTo
+            assignedTo: task.assignedTo?._id || task.assignedTo,
+            rk: ''
         }
     });
 
@@ -81,7 +82,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 title: task.title,
                 description: task.description,
                 dueDate: formatDate(task.dueDate),
-                assignedTo: task.assignedTo?._id || task.assignedTo
+                assignedTo: task.assignedTo?._id || task.assignedTo,
+                rk: ''
             });
         }
     }, [task, reset]);
@@ -347,6 +349,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             <p className="text-secondary-700">{task.description || 'No description provided.'}</p>
                         )}
                     </div>
+
+                    {isEditing && (
+                        <div>
+                            <h3 className="text-sm font-bold text-secondary-500 uppercase tracking-wider mb-2">Remark (RK)</h3>
+                            <input
+                                {...register('rk')}
+                                className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="Add a remark for this update..."
+                            />
+                        </div>
+                    )}
 
                     {isEditing && (
                         <div className="flex justify-end gap-3">

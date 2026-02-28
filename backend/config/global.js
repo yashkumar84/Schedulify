@@ -1,9 +1,28 @@
 const Roles = {
   SUPER_ADMIN: 'SUPER_ADMIN',
+  TEAM_MEMBER: 'TEAM_MEMBER'
+};
+
+// Legacy role values kept for migration reference only
+const LegacyRoles = {
   PROJECT_MANAGER: 'PROJECT_MANAGER',
   INHOUSE_TEAM: 'INHOUSE_TEAM',
   OUTSOURCED_TEAM: 'OUTSOURCED_TEAM',
   FINANCE_TEAM: 'FINANCE_TEAM'
+};
+
+const Features = {
+  PROJECTS: 'projects',
+  TASKS: 'tasks',
+  FINANCE: 'finance',
+  TEAM: 'team'
+};
+
+const CrudOps = {
+  CREATE: 'create',
+  READ: 'read',
+  UPDATE: 'update',
+  DELETE: 'delete'
 };
 
 const ProjectStatus = {
@@ -16,6 +35,7 @@ const ProjectStatus = {
 const TaskStatus = {
   TODO: 'todo',
   IN_PROGRESS: 'in-progress',
+  IN_REVIEW: 'in-review',
   COMPLETED: 'completed'
 };
 
@@ -34,6 +54,9 @@ const ApprovalStatus = {
 
 module.exports = {
   Roles,
+  LegacyRoles,
+  Features,
+  CrudOps,
   ProjectStatus,
   TaskStatus,
   TaskPriority,

@@ -3,8 +3,8 @@ const { Roles } = require('../config/global');
 
 // @desc    Raise expense request
 // @route   POST /api/finance
-// @access  Private
-const createExpense = async(req, res) => {
+// @access  Private (requires finance.create permission)
+const createExpense = async (req, res) => {
   try {
     const expense = new Expense({
       ...req.body,
@@ -19,16 +19,14 @@ const createExpense = async(req, res) => {
 
 // @desc    Approve/Reject expense
 // @route   PUT /api/finance/:id/status
-// @access  Private (Finance Team, Super Admin)
-const updateExpenseStatus = async(req, res) => {
+// @access  Private (requires finance.update permission)
+const updateExpenseStatus = async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.id);
-
     if (expense) {
       expense.status = req.body.status; // approved, rejected
       expense.rejectionReason = req.body.rejectionReason || '';
       expense.approvedBy = req.user._id;
-
       const updatedExpense = await expense.save();
       res.json(updatedExpense);
     } else {
@@ -39,22 +37,18 @@ const updateExpenseStatus = async(req, res) => {
   }
 };
 
-// @desc    Get all expenses (Filtered by role)
+// @desc    Get all expenses
 // @route   GET /api/finance
-// @access  Private
-const getExpenses = async(req, res) => {
+// @access  Private (requires finance.read permission)
+const getExpenses = async (req, res) => {
   try {
-    let query = {};
-
-    // Non-admins can only see their own requests or projects they manage
-    if (req.user.role === Roles.INHOUSE_TEAM || req.user.role === Roles.OUTSOURCED_TEAM) {
-      query = { requestedBy: req.user._id };
-    }
-
-    const expenses = await Expense.find(query)
+    // SUPER_ADMIN and any user with finance.read permission sees all expenses
+    // (route-level permission check already guards this endpoint)
+    const expenses = await Expense.find()
       .populate('requestedBy', 'name email')
       .populate('project', 'name')
       .sort({ createdAt: -1 });
+
     res.json(expenses);
   } catch (error) {
     res.status(500).json({ message: error.message });
