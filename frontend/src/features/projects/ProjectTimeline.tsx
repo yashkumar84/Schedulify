@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, differenceInDays } from 'date-fns';
-import { Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle2 } from 'lucide-react';
 
 interface Task {
     _id: string;
@@ -93,7 +93,7 @@ const ProjectTimeline: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
                                 {/* Task Name Label */}
                                 <div className="w-64 flex-shrink-0 p-4 border-r border-border flex items-center gap-2 z-10 bg-white group-hover:bg-secondary-50/50">
                                     <div className={`w-2 h-2 rounded-full ${task.status === 'COMPLETED' ? 'bg-emerald-500' :
-                                            task.status === 'IN_PROGRESS' ? 'bg-primary-500' : 'bg-secondary-300'
+                                        task.status === 'IN_PROGRESS' ? 'bg-primary-500' : 'bg-secondary-300'
                                         }`} />
                                     <span className="text-sm font-bold text-secondary-700 truncate">{task.title}</span>
                                 </div>
@@ -117,8 +117,8 @@ const ProjectTimeline: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
                                         initial={{ opacity: 0, x: leftOffset - 20 }}
                                         animate={{ opacity: 1, x: leftOffset }}
                                         className={`absolute h-8 top-3 rounded-xl shadow-md flex items-center px-3 z-10 cursor-pointer overflow-hidden whitespace-nowrap text-[10px] font-extrabold uppercase tracking-tight text-white ${task.status === 'COMPLETED' ? 'bg-emerald-500 shadow-emerald-500/20' :
-                                                task.status === 'IN_PROGRESS' ? 'bg-primary-600 shadow-primary-600/20' :
-                                                    'bg-secondary-400 shadow-secondary-400/20'
+                                            task.status === 'IN_PROGRESS' ? 'bg-primary-600 shadow-primary-600/20' :
+                                                'bg-secondary-400 shadow-secondary-400/20'
                                             }`}
                                         style={{ width }}
                                     >
