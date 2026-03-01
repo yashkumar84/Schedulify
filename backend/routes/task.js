@@ -8,7 +8,6 @@ const {
   approveTask,
   rejectTask,
   getPendingTasks,
-  getPendingTasks,
   deleteTask,
   addComment
 } = require('../controllers/TaskController');
