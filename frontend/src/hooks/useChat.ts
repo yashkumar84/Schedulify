@@ -4,7 +4,13 @@ import api from '../utils/api';
 
 export interface Message {
     _id: string;
-    project: string;
+    project?: string;
+    receiver?: {
+        _id: string;
+        name: string;
+        email: string;
+        role: string;
+    };
     sender: {
         _id: string;
         name: string;
@@ -19,6 +25,8 @@ export interface Message {
         fileSize?: number;
         mimetype?: string;
     };
+    isEdited?: boolean;
+    editedAt?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -29,7 +37,7 @@ interface OnlineUser {
     userRole: string;
 }
 
-export const useChat = (projectId: string) => {
+export const useChat = (projectId?: string, receiverId?: string) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
@@ -50,14 +58,23 @@ export const useChat = (projectId: string) => {
     const loadMessages = useCallback(async () => {
         try {
             setIsLoading(true);
-            const response = await api.get(`/chat/${projectId}/messages?limit=50`);
-            setMessages(response.data.messages);
+            let url = '';
+            if (projectId) {
+                url = `/chat/${projectId}/messages?limit=50`;
+            } else if (receiverId) {
+                url = `/chat/personal/${receiverId}?limit=50`;
+            }
+
+            if (url) {
+                const response = await api.get(url);
+                setMessages(response.data.messages);
+            }
         } catch (error) {
             console.error('Error loading messages:', error);
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, receiverId]);
 
     // Send message
     const sendMessage = useCallback((content: string, type: string = 'text', metadata: any = null) => {
@@ -65,12 +82,13 @@ export const useChat = (projectId: string) => {
         if (socket && (content.trim() || metadata)) {
             socket.emit('send-message', {
                 projectId,
+                receiverId,
                 content: content.trim(),
                 type,
                 metadata
             });
         }
-    }, [projectId]);
+    }, [projectId, receiverId]);
 
     // Upload file
     const uploadFile = useCallback(async (file: File) => {
@@ -94,7 +112,8 @@ export const useChat = (projectId: string) => {
     const sendTyping = useCallback(() => {
         const socket = socketRef.current;
         if (socket) {
-            socket.emit('typing', { projectId });
+            const payload = projectId ? { projectId } : { receiverId };
+            socket.emit('typing', payload);
 
             // Clear existing timeout
             if (typingTimeoutRef.current) {
@@ -103,17 +122,19 @@ export const useChat = (projectId: string) => {
 
             // Stop typing after 2 seconds of inactivity
             typingTimeoutRef.current = window.setTimeout(() => {
-                socket.emit('stop-typing', { projectId });
+                socket.emit('stop-typing', payload);
             }, 2000);
         }
-    }, [projectId]);
+    }, [projectId, receiverId]);
 
     useEffect(() => {
         const socket = socketRef.current;
         if (!socket) return;
 
-        // Join project room
-        socket.emit('join-project', projectId);
+        // Join appropriate room
+        if (projectId) {
+            socket.emit('join-project', projectId);
+        }
         setIsConnected(true);
 
         // Load initial messages
@@ -121,42 +142,65 @@ export const useChat = (projectId: string) => {
 
         // Socket event listeners
         const handleNewMessage = (message: Message) => {
-            setMessages(prev => [...prev, message]);
+            // Only add message if it belongs to current context
+            if (projectId && message.project === projectId) {
+                setMessages(prev => [...prev, message]);
+            } else if (receiverId) {
+                // In personal chat, message payload has receiver and sender
+                const matches = (message.sender._id === receiverId) || (message.receiver?._id === receiverId);
+                if (matches && !message.project) {
+                    setMessages(prev => [...prev, message]);
+                }
+            }
         };
 
         const handleOnlineUsers = (users: OnlineUser[]) => {
-            setOnlineUsers(users);
+            if (projectId) setOnlineUsers(users);
         };
 
         const handleUserJoined = (user: OnlineUser) => {
-            setOnlineUsers(prev => {
-                const exists = prev.some(u => u.userId === user.userId);
-                if (exists) return prev;
-                return [...prev, user];
-            });
+            if (projectId) {
+                setOnlineUsers(prev => {
+                    const exists = prev.some(u => u.userId === user.userId);
+                    if (exists) return prev;
+                    return [...prev, user];
+                });
+            }
         };
 
         const handleUserLeft = (data: { userId: string }) => {
-            setOnlineUsers(prev => prev.filter(u => u.userId !== data.userId));
+            if (projectId) setOnlineUsers(prev => prev.filter(u => u.userId !== data.userId));
         };
 
-        const handleUserTyping = (data: { userId: string; userName: string }) => {
-            setTypingUsers(prev => new Set(prev).add(data.userName));
+        const handleUserTyping = (data: { userId: string; userName: string; isPersonal?: boolean }) => {
+            if (projectId && !data.isPersonal) {
+                setTypingUsers(prev => new Set(prev).add(data.userName));
+            } else if (receiverId && data.isPersonal && data.userId === receiverId) {
+                setTypingUsers(prev => new Set(prev).add(data.userName));
+            }
         };
 
-        const handleUserStopTyping = (data: { userId: string }) => {
-            setTypingUsers(prev => {
-                const newSet = new Set(prev);
-                // Use ref to avoid dependency on onlineUsers in useEffect
-                const user = onlineUsersRef.current.find(u => u.userId === data.userId);
-                if (user) {
-                    newSet.delete(user.userName);
-                }
-                return newSet;
-            });
+        const handleUserStopTyping = (data: { userId: string; isPersonal?: boolean }) => {
+            if (projectId && !data.isPersonal) {
+                setTypingUsers(prev => {
+                    const newSet = new Set(prev);
+                    const user = onlineUsersRef.current.find(u => u.userId === data.userId);
+                    if (user) newSet.delete(user.userName);
+                    return newSet;
+                });
+            } else if (receiverId && data.isPersonal && data.userId === receiverId) {
+                setTypingUsers(new Set()); // Simplify for personal, only one other person
+            }
+        };
+
+        const handleMessageEdited = (data: { _id: string; content: string; isEdited: boolean; editedAt: string }) => {
+            setMessages(prev => prev.map(m =>
+                m._id === data._id ? { ...m, content: data.content, isEdited: data.isEdited, editedAt: data.editedAt } : m
+            ));
         };
 
         socket.on('new-message', handleNewMessage);
+        socket.on('message-edited', handleMessageEdited);
         socket.on('online-users', handleOnlineUsers);
         socket.on('user-joined', handleUserJoined);
         socket.on('user-left', handleUserLeft);
@@ -165,8 +209,9 @@ export const useChat = (projectId: string) => {
 
         // Cleanup
         return () => {
-            socket.emit('leave-project', projectId);
+            if (projectId) socket.emit('leave-project', projectId);
             socket.off('new-message', handleNewMessage);
+            socket.off('message-edited', handleMessageEdited);
             socket.off('online-users', handleOnlineUsers);
             socket.off('user-joined', handleUserJoined);
             socket.off('user-left', handleUserLeft);
@@ -177,7 +222,21 @@ export const useChat = (projectId: string) => {
                 clearTimeout(typingTimeoutRef.current);
             }
         };
-    }, [projectId, loadMessages]);
+    }, [projectId, receiverId, loadMessages]);
+
+    // Edit a message via API
+    const editMessage = useCallback(async (messageId: string, content: string) => {
+        try {
+            const response = await api.put(`/chat/messages/${messageId}`, { content });
+            // Update locally (socket event will also handle it)
+            setMessages(prev => prev.map(m =>
+                m._id === messageId ? { ...m, content: response.data.content, isEdited: true, editedAt: response.data.editedAt } : m
+            ));
+        } catch (error) {
+            console.error('Error editing message:', error);
+            throw error;
+        }
+    }, []);
 
     return {
         messages,
@@ -187,6 +246,7 @@ export const useChat = (projectId: string) => {
         isLoading,
         sendMessage,
         sendTyping,
-        uploadFile
+        uploadFile,
+        editMessage
     };
 };

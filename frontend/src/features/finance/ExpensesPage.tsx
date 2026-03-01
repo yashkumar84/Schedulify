@@ -9,8 +9,10 @@ import {
     Edit2,
     Trash2,
     CheckCircle,
-    XCircle
+    XCircle,
+    Download
 } from 'lucide-react';
+import api from '../../utils/api';
 import { motion } from 'framer-motion';
 import { useExpenses, useCreateExpense, useProjects } from '../../hooks/useApi';
 import { Loader2 } from 'lucide-react';
@@ -128,6 +130,24 @@ const ExpensesPage: React.FC = () => {
         return matchesSearch && matchesStatus;
     });
 
+    const handleDownload = async () => {
+        try {
+            const response = await api.get('/finance/export', {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'expenses.csv');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error('Download failed:', error);
+            alert('Failed to download expense report');
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
@@ -144,13 +164,22 @@ const ExpensesPage: React.FC = () => {
                     <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Expenses</h1>
                     <p className="text-secondary-500 mt-1">Track and approve project-related expenses.</p>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center justify-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all"
-                >
-                    <Plus size={20} />
-                    New Expense
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleDownload}
+                        className="flex items-center justify-center gap-2 bg-card border border-border px-5 py-2.5 rounded-xl font-semibold hover:bg-secondary-50 transition-all text-sm"
+                    >
+                        <Download size={18} />
+                        Download Report
+                    </button>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex items-center justify-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all text-sm"
+                    >
+                        <Plus size={20} />
+                        New Expense
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:flex gap-4">

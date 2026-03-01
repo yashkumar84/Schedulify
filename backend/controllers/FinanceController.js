@@ -55,8 +55,32 @@ const getExpenses = async (req, res) => {
   }
 };
 
+// @desc    Export expenses as CSV
+// @route   GET /api/finance/export
+// @access  Private
+const exportExpenses = async (req, res) => {
+  try {
+    const expenses = await Expense.find()
+      .populate('requestedBy', 'name')
+      .populate('project', 'name')
+      .sort({ createdAt: -1 });
+
+    let csv = 'Title,Amount,Project,Requested By,Status,Date\n';
+    expenses.forEach(exp => {
+      csv += `"${exp.title}",${exp.amount},"${exp.project?.name || 'N/A'}","${exp.requestedBy?.name || 'N/A'}",${exp.status},${exp.createdAt.toISOString().split('T')[0]}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=expenses.csv');
+    res.status(200).send(csv);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createExpense,
   updateExpenseStatus,
-  getExpenses
+  getExpenses,
+  exportExpenses
 };

@@ -10,6 +10,19 @@ export default defineConfig({
   ],
   server: {
     allowedHosts: true,
+    proxy: {
+      // Proxy API requests to the backend
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+      // Proxy Socket.io connections to the backend
+      '/socket.io': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+      }
+    },
     hmr: {
       protocol: 'wss',
       host: 'schedulifynow.com',

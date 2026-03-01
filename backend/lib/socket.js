@@ -13,7 +13,7 @@ const initializeSocket = (io) => {
   global.io = io;
 
   // Middleware to authenticate socket connections
-  io.use(async(socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth.token;
       if (!token) {
@@ -103,25 +103,37 @@ const initializeSocket = (io) => {
       console.log(`👋 ${socket.user.name} left project ${projectId}`);
     });
 
-    // Send a message
-    socket.on('send-message', async({ projectId, content, type = 'text', metadata = null }) => {
+    // Send a message (Project or Personal)
+    socket.on('send-message', async ({ projectId, receiverId, content, type = 'text', metadata = null }) => {
       try {
-        // Save message to database
-        const message = await Message.create({
-          project: projectId,
+        const messageData = {
           sender: socket.user._id,
           content,
           type,
           metadata
-        });
+        };
+
+        if (projectId && projectId !== 'personal') {
+          messageData.project = projectId;
+        } else if (receiverId) {
+          messageData.receiver = receiverId;
+        } else {
+          return socket.emit('message-error', { message: 'Project ID or Receiver ID is required' });
+        }
+
+        // Save message to database
+        const message = await Message.create(messageData);
 
         // Populate sender info
         await message.populate('sender', 'name email role');
+        if (message.receiver) {
+          await message.populate('receiver', 'name email role');
+        }
 
-        // Broadcast to all users in the project room
-        io.to(`project:${projectId}`).emit('new-message', {
+        const messagePayload = {
           _id: message._id,
           project: message.project,
+          receiver: message.receiver,
           sender: {
             _id: message.sender._id,
             name: message.sender.name,
@@ -133,9 +145,19 @@ const initializeSocket = (io) => {
           metadata: message.metadata,
           createdAt: message.createdAt,
           updatedAt: message.updatedAt
-        });
+        };
 
-        console.log(`💬 ${message.type} message sent in project ${projectId} by ${socket.user.name}`);
+        if (message.project) {
+          // Broadcast to all users in the project room
+          io.to(`project:${message.project}`).emit('new-message', messagePayload);
+          console.log(`💬 ${message.type} message sent in project ${message.project} by ${socket.user.name}`);
+        } else if (message.receiver) {
+          // Send to receiver's room and sender's room
+          const receiverIdStr = message.receiver._id.toString();
+          io.to(`user:${receiverIdStr}`).emit('new-message', messagePayload);
+          io.to(`user:${userId}`).emit('new-message', messagePayload);
+          console.log(`👤 Personal message sent from ${socket.user.name} to ${receiverIdStr}`);
+        }
       } catch (error) {
         console.error('Error sending message:', error);
         socket.emit('message-error', { message: 'Failed to send message' });
@@ -143,18 +165,33 @@ const initializeSocket = (io) => {
     });
 
     // Typing indicator
-    socket.on('typing', ({ projectId }) => {
-      socket.to(`project:${projectId}`).emit('user-typing', {
-        userId: socket.user._id,
-        userName: socket.user.name
-      });
+    socket.on('typing', ({ projectId, receiverId }) => {
+      if (projectId) {
+        socket.to(`project:${projectId}`).emit('user-typing', {
+          userId: socket.user._id,
+          userName: socket.user.name
+        });
+      } else if (receiverId) {
+        socket.to(`user:${receiverId}`).emit('user-typing', {
+          userId: socket.user._id,
+          userName: socket.user.name,
+          isPersonal: true
+        });
+      }
     });
 
     // Stop typing indicator
-    socket.on('stop-typing', ({ projectId }) => {
-      socket.to(`project:${projectId}`).emit('user-stop-typing', {
-        userId: socket.user._id
-      });
+    socket.on('stop-typing', ({ projectId, receiverId }) => {
+      if (projectId) {
+        socket.to(`project:${projectId}`).emit('user-stop-typing', {
+          userId: socket.user._id
+        });
+      } else if (receiverId) {
+        socket.to(`user:${receiverId}`).emit('user-stop-typing', {
+          userId: socket.user._id,
+          isPersonal: true
+        });
+      }
     });
 
     // Handle disconnection
