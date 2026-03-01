@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createExpense, updateExpenseStatus, getExpenses } = require('../controllers/FinanceController');
+const { createExpense, updateExpenseStatus, getExpenses, exportExpenses } = require('../controllers/FinanceController');
 const { authenticate, checkPermission } = require('../helpers/auth');
 
 router.get('/', authenticate, checkPermission('finance', 'read'), getExpenses);
