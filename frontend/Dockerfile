@@ -1,25 +1,15 @@
-# Use Node.js 20 as base image
-FROM node:20-slim
-
-# Set working directory
+# Build stage
+FROM node:20-slim AS build
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies with aggressive timeout and registry optimization
-RUN npm config set registry https://registry.npmjs.org/ && \
-    npm config set fetch-retries 10 && \
-    npm config set fetch-retry-mintimeout 60000 && \
-    npm config set fetch-retry-maxtimeout 300000 && \
-    npm config set maxsockets 1 && \
-    npm install --legacy-peer-deps --no-audit --progress=false
-
-# Copy the rest of the application
+RUN npm install --legacy-peer-deps
 COPY . .
+RUN npm run build
 
-# Expose the frontend port
+# Production stage
+FROM node:20-slim
+WORKDIR /app
+RUN npm install -g serve
+COPY --from=build /app/dist ./dist
 EXPOSE 5173
-
-# Start the application (Vite requires --host to be accessible from outside the container)
-CMD ["npm", "run", "dev", "--", "--host"]
+CMD ["serve", "-s", "dist", "-l", "5173"]

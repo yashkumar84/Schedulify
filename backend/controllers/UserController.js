@@ -158,7 +158,7 @@ const forgotPassword = async (req, res) => {
       });
       res.status(200).json({ message: 'Email sent' });
     } catch (err) {
-      console.log(err);
+      console.error('❌ Forgot Password Email Error:', err);
       user.forgotPasswordCode = '';
       user.forgotPasswordToken = '';
       await user.save();
