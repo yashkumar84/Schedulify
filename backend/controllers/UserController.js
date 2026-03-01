@@ -12,10 +12,13 @@ const sendEmail = require('../helpers/mail');
 // @access  Public
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
+  const normalizedEmail = email?.toLowerCase().trim();
+  console.log(`🔍 Login attempt for: ${normalizedEmail}`);
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email: normalizedEmail });
 
   if (user && comparePassword(password, user.password)) {
+    console.log(`✅ Login successful for: ${normalizedEmail}`);
     res.json({
       user: {
         id: user._id,
@@ -27,6 +30,7 @@ const loginUser = async (req, res) => {
       token: generateToken(user)
     });
   } else {
+    console.error(`❌ Login failed for: ${email}. User found: ${!!user}, Password matched: ${user ? comparePassword(password, user.password) : 'N/A'}`);
     res.status(401).json({ message: 'Invalid email or password' });
   }
 };
@@ -40,7 +44,8 @@ const registerUser = async (req, res) => {
   // Always creates TEAM_MEMBER — superadmin is set manually in DB
   const role = 'TEAM_MEMBER';
 
-  const userExists = await User.findOne({ email });
+  const normalizedEmail = email.toLowerCase().trim();
+  const userExists = await User.findOne({ email: normalizedEmail });
   if (userExists) {
     return res.status(400).json({ message: 'User already exists' });
   }
@@ -51,7 +56,7 @@ const registerUser = async (req, res) => {
 
   const user = await User.create({
     name,
-    email,
+    email: normalizedEmail,
     password: hashedPassword,
     role,
     permissions: permissions || {}
