@@ -16,8 +16,9 @@ const loginUser = async (req, res) => {
   console.log(`🔍 Login attempt for: ${normalizedEmail}`);
 
   const user = await User.findOne({ email: normalizedEmail });
+  const isMatch = user ? await comparePassword(password, user.password) : false;
 
-  if (user && comparePassword(password, user.password)) {
+  if (user && isMatch) {
     console.log(`✅ Login successful for: ${normalizedEmail}`);
     res.json({
       user: {
@@ -30,8 +31,7 @@ const loginUser = async (req, res) => {
       token: generateToken(user)
     });
   } else {
-    const isMatchLog = user ? await comparePassword(password, user.password) : 'N/A';
-    console.error(`❌ Login failed for: ${email}. User found: ${!!user}, Password matched: ${isMatchLog}, Email Len: ${normalizedEmail?.length}, Pass Len: ${password?.length}`);
+    console.error(`❌ Login failed for: ${email}. User found: ${!!user}, Password matched: ${isMatch}, Email Len: ${normalizedEmail?.length}, Pass Len: ${password?.length}`);
     res.status(401).json({ message: 'Invalid email or password' });
   }
 };
