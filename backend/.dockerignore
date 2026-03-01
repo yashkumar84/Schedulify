@@ -2,6 +2,7 @@ node_modules
 npm-debug.log
 logs
 .git
-.env
+# .env (Allowed for now to debug injection issues)
+# .env
 Dockerfile
 docker-compose.yml

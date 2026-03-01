@@ -55,4 +55,10 @@ app.use((err, req, res, next) => {
 server.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
   console.log(`💬 Socket.io server ready for chat`);
+  console.log(`🌐 CLIENT_URL: ${process.env.CLIENT_URL || 'NOT SET (falling back to localhost)'}`);
+  if (process.env.GMAIL_USER) {
+    console.log(`📧 Email service configured for: ${process.env.GMAIL_USER}`);
+  } else {
+    console.error(`❌ GMAIL_USER is NOT SET!`);
+  }
 });

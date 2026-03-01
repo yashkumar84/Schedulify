@@ -67,12 +67,15 @@ const registerUser = async (req, res) => {
     const templatePath = path.join(__dirname, '../templates/WelcomeMember.html');
     let htmlContent = fs.readFileSync(templatePath, 'utf8');
 
+    const loginUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    console.log(`📧 Sending welcome email to ${user.email} with URL: ${loginUrl} and Password: ${tempPassword}`);
+
     htmlContent = htmlContent
       .replace('{{NAME}}', user.name)
       .replace('{{ROLE}}', 'Team Member')
       .replace('{{EMAIL}}', user.email)
       .replace('{{PASSWORD}}', tempPassword)
-      .replace(/{{LOGIN_URL}}/g, process.env.CLIENT_URL || 'http://localhost:5173');
+      .replace(/{{LOGIN_URL}}/g, loginUrl);
 
     try {
       await sendEmail({
