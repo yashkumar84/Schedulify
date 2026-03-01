@@ -30,7 +30,8 @@ const loginUser = async (req, res) => {
       token: generateToken(user)
     });
   } else {
-    console.error(`❌ Login failed for: ${email}. User found: ${!!user}, Password matched: ${user ? comparePassword(password, user.password) : 'N/A'}`);
+    const isMatchLog = user ? await comparePassword(password, user.password) : 'N/A';
+    console.error(`❌ Login failed for: ${email}. User found: ${!!user}, Password matched: ${isMatchLog}, Email Len: ${normalizedEmail?.length}, Pass Len: ${password?.length}`);
     res.status(401).json({ message: 'Invalid email or password' });
   }
 };
@@ -61,6 +62,8 @@ const registerUser = async (req, res) => {
     role,
     permissions: permissions || {}
   });
+
+  console.log(`✅ User registered in DB: ${user.email} (ID: ${user._id}, Email Len: ${user.email.length})`);
 
   if (user) {
     // Send Welcome Email
