@@ -29,7 +29,8 @@ interface Comment {
         name: string;
     };
     text: string;
-    timestamp: Date;
+    createdAt?: string;
+    timestamp?: Date; // legacy fallback
 }
 
 interface TaskDetailModalProps {
@@ -38,7 +39,7 @@ interface TaskDetailModalProps {
     onClose: () => void;
     onUpdate?: (taskId: string, data: any) => void;
     onDelete?: (taskId: string) => void;
-    onAddComment?: (taskId: string, comment: string) => void;
+    onAddComment?: (taskId: string, comment: string) => Promise<any>;
 }
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -53,6 +54,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     const [isEditing, setIsEditing] = useState(false);
     const [commentText, setCommentText] = useState('');
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+    const [localComments, setLocalComments] = useState<Comment[]>(task.comments || []);
+
+    // Sync localComments if task prop changes (e.g. parent refetches)
+    React.useEffect(() => {
+        setLocalComments(task.comments || []);
+    }, [task._id]);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -100,7 +107,20 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
         setIsSubmittingComment(true);
         try {
-            await onAddComment?.(task._id || task.id, commentText);
+            // Call parent's handler and capture the returned updated task
+            const updatedTask = await onAddComment?.(task._id || task.id, commentText);
+            // Use the populated comments from the API response
+            if (updatedTask?.comments) {
+                setLocalComments(updatedTask.comments);
+            } else {
+                // Optimistic fallback: manually append with current user info
+                const optimistic: Comment = {
+                    user: { _id: (user as any)?._id || '', name: (user as any)?.name || 'You' },
+                    text: commentText.trim(),
+                    createdAt: new Date().toISOString()
+                };
+                setLocalComments(prev => [...prev, optimistic]);
+            }
             setCommentText('');
         } catch (error) {
             console.error('Failed to add comment:', error);
@@ -451,22 +471,22 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <div>
                         <h3 className="text-sm font-bold text-secondary-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                             <MessageCircle size={16} />
-                            Comments ({task.comments?.length || 0})
+                            Comments ({localComments?.length || 0})
                         </h3>
 
                         {/* Comments List */}
                         <div className="space-y-4 mb-4">
-                            {task.comments && task.comments.length > 0 ? (
-                                task.comments.map((comment: Comment, index: number) => (
-                                    <div key={index} className="flex gap-3">
+                            {localComments && localComments.length > 0 ? (
+                                localComments.map((comment: Comment, index: number) => (
+                                    <div key={comment._id || index} className="flex gap-3">
                                         <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-sm flex-shrink-0">
-                                            {comment.user?.name?.charAt(0) || 'U'}
+                                            {comment.user?.name?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="font-bold text-sm">{comment.user?.name || 'Unknown User'}</span>
                                                 <span className="text-xs text-secondary-500">
-                                                    {new Date(comment.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(comment.createdAt || comment.timestamp || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </div>
                                             <p className="text-sm text-secondary-700 bg-secondary-50 p-3 rounded-lg">{comment.text}</p>

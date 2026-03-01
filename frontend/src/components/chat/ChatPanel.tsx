@@ -103,14 +103,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, projectName, isOpen, o
                                 onClick={() => setChatMode('personal')}
                                 className={`text-xs font-bold pb-1 border-b-2 transition-all ${chatMode === 'personal' ? 'border-white opacity-100' : 'border-transparent opacity-60'}`}
                             >
-                                Personal
+                                Chat with Team
                             </button>
                         </div>
                     )}
                 </div>
 
                 {/* Online Users (only for project chat) */}
-                {chatMode === 'project' && <OnlineUsers users={onlineUsers} />}
+                {chatMode === 'project' && (
+                    <OnlineUsers
+                        users={onlineUsers}
+                        onUserClick={(id, name) => {
+                            setChatMode('personal');
+                            setSelectedUser({ id, name });
+                        }}
+                    />
+                )}
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-y-auto bg-background relative chat-container flex flex-col">

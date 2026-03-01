@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExpenseStatus } from './types';
+
 import {
     DollarSign,
     FileText,
@@ -8,13 +8,13 @@ import {
     Search,
     Edit2,
     Trash2,
-    CheckCircle,
-    XCircle,
-    Download
+    Download,
+    IndianRupee,
+    Trash
 } from 'lucide-react';
 import api from '../../utils/api';
 import { motion } from 'framer-motion';
-import { useExpenses, useCreateExpense, useProjects } from '../../hooks/useApi';
+import { useExpenses, useCreateExpense, useProjects, useUpload } from '../../hooks/useApi';
 import { Loader2 } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import CustomSelect from '../../components/ui/CustomSelect';
@@ -22,11 +22,10 @@ import { useDebounce } from '../../hooks/useDebounce';
 import ActionMenu, { ActionMenuItem } from '../../components/ui/ActionMenu';
 import { useAuthStore } from '../../store/authStore';
 
-const ExpenseCard: React.FC<{ expense: any; index: number; onEdit: (expense: any) => void; onApprove: (id: string) => void; onReject: (id: string) => void }> = ({ expense, index, onEdit, onApprove, onReject }) => {
+const ExpenseCard: React.FC<{ expense: any; index: number; onEdit: (expense: any) => void }> = ({ expense, index, onEdit }) => {
     const menuItems: ActionMenuItem[] = [
         { id: 'edit', label: 'Edit', icon: Edit2, onClick: () => onEdit(expense) },
-        { id: 'approve', label: 'Approve', icon: CheckCircle, onClick: () => onApprove(expense._id) },
-        { id: 'reject', label: 'Reject', icon: XCircle, onClick: () => onReject(expense._id), destructive: true },
+        { id: 'delete', label: 'Delete', icon: Trash2, onClick: () => { /* TODO: Implement delete */ }, destructive: true },
     ];
 
     return (
@@ -37,30 +36,21 @@ const ExpenseCard: React.FC<{ expense: any; index: number; onEdit: (expense: any
             className="bg-card rounded-2xl border border-border p-5 hover:shadow-md transition-shadow group"
         >
             <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-xl ${expense.status === ExpenseStatus.APPROVED ? 'bg-emerald-50 text-emerald-600' :
-                    expense.status === ExpenseStatus.REJECTED ? 'bg-red-50 text-red-600' :
-                        'bg-amber-50 text-amber-600'
-                    }`}>
-                    <DollarSign size={24} />
+                <div className="p-3 rounded-xl bg-primary-50 text-primary-600">
+                    <IndianRupee size={24} />
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className={`px-2 py-0.5 rounded text-[10px] font-bold ${expense.status === ExpenseStatus.APPROVED ? 'bg-emerald-100 text-emerald-700' :
-                        expense.status === ExpenseStatus.REJECTED ? 'bg-red-100 text-red-700' :
-                            'bg-amber-100 text-amber-700'
-                        }`}>
-                        {expense.status.toUpperCase()}
-                    </div>
                     <ActionMenu items={menuItems} />
                 </div>
             </div>
 
-            <h4 className="font-bold text-lg mb-1 group-hover:text-primary-600 transition-colors">{expense.description}</h4>
+            <h4 className="font-bold text-lg mb-1 group-hover:text-primary-600 transition-colors">{expense.title}</h4>
             <p className="text-secondary-500 text-sm mb-4">Project: <span className="text-secondary-900 font-medium">{expense.project?.name || 'N/A'}</span></p>
 
             <div className="flex items-center justify-between pt-4 border-t border-border">
                 <div>
-                    <p className="text-xs text-secondary-500 mb-1">Requested Amount</p>
-                    <p className="text-xl font-bold">${expense.amount.toLocaleString()}</p>
+                    <p className="text-xs text-secondary-500 mb-1">Amount</p>
+                    <p className="text-xl font-bold">₹{expense.amount.toLocaleString()}</p>
                 </div>
                 <div className="text-right">
                     <p className="text-xs text-secondary-500 mb-1 text-right flex items-center justify-end gap-1">
@@ -73,21 +63,24 @@ const ExpenseCard: React.FC<{ expense: any; index: number; onEdit: (expense: any
                     )}
                 </div>
             </div>
-        </motion.div>
+        </motion.div >
     );
 };
 
 const ExpensesPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL');
     const debouncedSearch = useDebounce(searchQuery, 300);
     const { user } = useAuthStore();
 
     const { data: expenses, isLoading } = useExpenses();
     const { data: projects } = useProjects();
     const createExpenseMutation = useCreateExpense();
-    const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
+    const uploadMutation = useUpload();
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [invoiceFile, setInvoiceFile] = useState<any>(null);
+
+    const { register, handleSubmit, reset, control, formState: { errors }, setValue } = useForm();
 
     const onSubmit = (data: any) => {
         const currentUser = user as any;
@@ -100,6 +93,7 @@ const ExpensesPage: React.FC = () => {
             onSuccess: () => {
                 setIsModalOpen(false);
                 reset();
+                setInvoiceFile(null);
             },
             onError: (err: any) => {
                 alert(`Error: ${err.response?.data?.message || err.message || 'Unknown error'}`);
@@ -112,22 +106,29 @@ const ExpensesPage: React.FC = () => {
         // TODO: Implement edit functionality
     };
 
-    const handleApprove = (expenseId: string) => {
-        console.log('Approving expense:', expenseId);
-        // TODO: Implement approve functionality
-    };
 
-    const handleReject = (expenseId: string) => {
-        console.log('Rejecting expense:', expenseId);
-        // TODO: Implement reject functionality
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const data = await uploadMutation.mutateAsync(file);
+            setInvoiceFile(data);
+            setValue('invoiceUrl', data.url);
+        } catch (error) {
+            console.error('File upload failed:', error);
+            alert('Icon upload failed. Please try again.');
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     const filteredExpenses = expenses?.filter((e: any) => {
         const query = debouncedSearch.toLowerCase();
-        const matchesSearch = e.description?.toLowerCase().includes(query) ||
+        const matchesSearch = e.title?.toLowerCase().includes(query) ||
+            e.description?.toLowerCase().includes(query) ||
             e.project?.name?.toLowerCase().includes(query);
-        const matchesStatus = statusFilter === 'ALL' || e.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        return matchesSearch;
     });
 
     const handleDownload = async () => {
@@ -182,36 +183,16 @@ const ExpensesPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:flex gap-4">
+            <div className="flex gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
                     <input
                         type="text"
-                        placeholder="Search by description or project..."
+                        placeholder="Search by title or project..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-card border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl transition-all outline-none"
                     />
-                </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setStatusFilter('ALL')}
-                        className={`px-4 py-3 border rounded-xl text-sm font-semibold transition-colors ${statusFilter === 'ALL' ? 'bg-primary-600 text-white border-primary-600' : 'bg-card border-border hover:bg-secondary-50'}`}
-                    >
-                        All
-                    </button>
-                    <button
-                        onClick={() => setStatusFilter(ExpenseStatus.PENDING)}
-                        className={`px-4 py-3 border rounded-xl text-sm font-semibold transition-colors ${statusFilter === ExpenseStatus.PENDING ? 'bg-amber-600 text-white border-amber-600' : 'bg-card border-border hover:bg-secondary-50'}`}
-                    >
-                        Pending
-                    </button>
-                    <button
-                        onClick={() => setStatusFilter(ExpenseStatus.APPROVED)}
-                        className={`px-4 py-3 border rounded-xl text-sm font-semibold transition-colors ${statusFilter === ExpenseStatus.APPROVED ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-card border-border hover:bg-secondary-50'}`}
-                    >
-                        Approved
-                    </button>
                 </div>
             </div>
 
@@ -222,8 +203,6 @@ const ExpensesPage: React.FC = () => {
                         expense={expense}
                         index={index}
                         onEdit={handleEdit}
-                        onApprove={handleApprove}
-                        onReject={handleReject}
                     />
                 ))}
                 {filteredExpenses?.length === 0 && (
@@ -252,21 +231,20 @@ const ExpensesPage: React.FC = () => {
                         </div>
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Description</label>
+                                <label className="block text-sm font-medium mb-1">Title</label>
                                 <input
-                                    {...register('description', { required: 'Description is required' })}
+                                    {...register('title', { required: 'Title is required' })}
                                     className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                                     placeholder="e.g. Office supplies"
                                 />
-                                {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description?.message as string}</p>}
+                                {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title?.message as string}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Project</label>
+                                <label className="block text-sm font-medium mb-1">Project (Optional)</label>
                                 <Controller
                                     name="project"
                                     control={control}
-                                    rules={{ required: 'Project is required' }}
                                     render={({ field }) => (
                                         <CustomSelect
                                             options={projects?.map((p: any) => ({
@@ -287,7 +265,7 @@ const ExpensesPage: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Amount ($)</label>
+                                <label className="block text-sm font-medium mb-1">Amount (₹)</label>
                                 <input
                                     {...register('amount', { valueAsNumber: true, required: 'Amount is required' })}
                                     type="number"
@@ -298,13 +276,50 @@ const ExpensesPage: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Invoice URL (Optional)</label>
-                                <input
-                                    {...register('invoiceUrl')}
-                                    type="url"
-                                    className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
-                                    placeholder="https://..."
-                                />
+                                <label className="block text-sm font-medium mb-1">Invoice Photo</label>
+                                <div className="space-y-2">
+                                    {invoiceFile && (
+                                        <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                                            <FileText size={18} className="text-emerald-600" />
+                                            <span className="text-sm font-medium text-emerald-700 truncate flex-1">{invoiceFile.fileName}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setInvoiceFile(null);
+                                                    setValue('invoiceUrl', '');
+                                                }}
+                                                className="p-1 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors"
+                                            >
+                                                <Trash size={16} />
+                                            </button>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                        accept="image/*,.pdf"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploadMutation.isPending}
+                                        className="w-full py-4 border-2 border-dashed border-secondary-200 rounded-2xl text-secondary-500 hover:border-primary-500 hover:text-primary-600 transition-all flex flex-col items-center justify-center gap-2"
+                                    >
+                                        {uploadMutation.isPending ? (
+                                            <Loader2 size={24} className="animate-spin" />
+                                        ) : (
+                                            <>
+                                                <div className="p-3 bg-secondary-50 rounded-xl">
+                                                    <Plus size={24} />
+                                                </div>
+                                                <span className="text-sm font-medium">Click to upload invoice</span>
+                                                <span className="text-xs text-secondary-400">PNG, JPG or PDF up to 10MB</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex justify-end gap-3 mt-8">

@@ -9,9 +9,10 @@ interface OnlineUser {
 
 interface OnlineUsersProps {
     users: OnlineUser[];
+    onUserClick?: (userId: string, userName: string) => void;
 }
 
-const OnlineUsers: React.FC<OnlineUsersProps> = ({ users }) => {
+const OnlineUsers: React.FC<OnlineUsersProps> = ({ users, onUserClick }) => {
     const getInitials = (name: string) => {
         return name
             .split(' ')
@@ -46,16 +47,17 @@ const OnlineUsers: React.FC<OnlineUsersProps> = ({ users }) => {
             </div>
             <div className="flex flex-wrap gap-2">
                 {users.map((user) => (
-                    <div
+                    <button
                         key={user.userId}
-                        className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-border"
+                        onClick={() => onUserClick?.(user.userId, user.userName)}
+                        className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-border hover:border-primary-500 transition-colors"
                     >
                         <div className={`w-6 h-6 rounded-full ${getRoleColor(user.userRole)} flex items-center justify-center text-[10px] font-bold relative`}>
                             {getInitials(user.userName)}
                             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
                         </div>
                         <span className="text-xs font-medium text-secondary-700">{user.userName}</span>
-                    </div>
+                    </button>
                 ))}
             </div>
         </div>

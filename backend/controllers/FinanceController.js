@@ -65,9 +65,9 @@ const exportExpenses = async (req, res) => {
       .populate('project', 'name')
       .sort({ createdAt: -1 });
 
-    let csv = 'Title,Amount,Project,Requested By,Status,Date\n';
+    let csv = 'Date,Title,Amount (₹),Project,Requested By,Invoice URL\n';
     expenses.forEach(exp => {
-      csv += `"${exp.title}",${exp.amount},"${exp.project?.name || 'N/A'}","${exp.requestedBy?.name || 'N/A'}",${exp.status},${exp.createdAt.toISOString().split('T')[0]}\n`;
+      csv += `${exp.createdAt.toISOString().split('T')[0]},"${exp.title}",${exp.amount},"${exp.project?.name || 'N/A'}","${exp.requestedBy?.name || 'N/A'}","${exp.invoiceUrl || 'No Invoice'}"\n`;
     });
 
     res.setHeader('Content-Type', 'text/csv');

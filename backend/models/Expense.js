@@ -15,7 +15,7 @@ const expenseSchema = new mongoose.Schema({
   project: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
-    required: true
+    required: false
   },
   requestedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -28,7 +28,7 @@ const expenseSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
+    default: 'approved'
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
