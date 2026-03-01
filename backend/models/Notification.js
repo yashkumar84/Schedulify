@@ -12,7 +12,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['TASK_STATUS_CHANGE', 'TASK_ASSIGNMENT', 'PROJECT_ASSIGNMENT', 'SYSTEM'],
+    enum: ['TASK_STATUS_CHANGE', 'TASK_ASSIGNMENT', 'PROJECT_ASSIGNMENT', 'TASK_COMMENT', 'SYSTEM'],
     default: 'SYSTEM'
   },
   message: {
