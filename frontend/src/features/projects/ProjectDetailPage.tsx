@@ -32,7 +32,7 @@ import CustomSelect from '../../components/ui/CustomSelect';
 import MultiSelect from '../../components/ui/MultiSelect';
 import ActionMenu, { ActionMenuItem } from '../../components/ui/ActionMenu';
 import { useAuthStore } from '../../store/authStore';
-import ChatPanel from '../../components/chat/ChatPanel';
+import { useChatStore } from '../../store/chatStore';
 import { initializeSocket } from '../../utils/socket';
 import ConfirmationModal from '../../components/ui/ConfirmationModal';
 import ActivityFeed from '../../components/ActivityFeed';
@@ -64,7 +64,7 @@ const ProjectDetailPage: React.FC = () => {
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
-    const [isChatOpen, setIsChatOpen] = useState(false);
+    const { openProjectChat } = useChatStore();
     const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'timeline'>('overview');
 
     // Initialize Socket.io connection
@@ -241,7 +241,7 @@ const ProjectDetailPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => setIsChatOpen(!isChatOpen)}
+                        onClick={() => openProjectChat(id!, project.name)}
                         className="px-5 py-2.5 bg-card border border-border rounded-xl font-semibold hover:bg-secondary-50 transition-colors text-sm flex items-center gap-2"
                     >
                         <MessageCircle size={18} />
@@ -647,7 +647,6 @@ const ProjectDetailPage: React.FC = () => {
                 </div>
             )}
 
-            <ChatPanel projectId={id!} projectName={project.name} isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
             <ConfirmationModal
                 isOpen={deleteConfirm.isOpen}

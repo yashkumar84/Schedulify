@@ -6,17 +6,28 @@ import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import OnlineUsers from './OnlineUsers';
 import { useTeam } from '../../hooks/useApi';
+import { useChatStore } from '../../store/chatStore';
 
 interface ChatPanelProps {
-    projectId: string;
-    projectName: string;
     isOpen: boolean;
     onClose: () => void;
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, projectName, isOpen, onClose }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
+    const { projectId, projectName, receiverId, receiverName } = useChatStore();
     const [chatMode, setChatMode] = useState<'project' | 'personal'>('project');
     const [selectedUser, setSelectedUser] = useState<{ id: string, name: string } | null>(null);
+
+    // Sync local state with store when opened/changed
+    useEffect(() => {
+        if (projectId) {
+            setChatMode('project');
+            setSelectedUser(null);
+        } else if (receiverId) {
+            setChatMode('personal');
+            setSelectedUser({ id: receiverId, name: receiverName || 'User' });
+        }
+    }, [projectId, receiverId, receiverName]);
 
     const {
         messages,
@@ -90,8 +101,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, projectName, isOpen, o
                         </button>
                     </div>
 
-                    {/* Mode Toggle */}
-                    {!selectedUser && (
+                    {/* Mode Toggle - only if we have a project context */}
+                    {!selectedUser && projectId && (
                         <div className="flex px-4 pb-2 gap-4">
                             <button
                                 onClick={() => setChatMode('project')}

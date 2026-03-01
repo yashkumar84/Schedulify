@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '../../hooks/useApi';
+import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead, useProfile } from '../../hooks/useApi';
 import { getSocket } from '../../utils/socket';
+import { useChatStore } from '../../store/chatStore';
+import ChatPanel from '../../components/chat/ChatPanel';
 import {
     LayoutDashboard,
     Briefcase,
@@ -23,15 +25,31 @@ import { motion, AnimatePresence } from 'framer-motion';
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-    const { user, logout } = useAuthStore();
+    const { user, logout, setUser } = useAuthStore();
+    const { isOpen: isChatOpen, closeChat } = useChatStore();
     const navigate = useNavigate();
 
 
+    const { data: profile, isSuccess: isProfileLoaded } = useProfile();
     const { data: notifications, refetch: refetchNotifications } = useNotifications();
     const markRead = useMarkNotificationRead();
     const markAllRead = useMarkAllNotificationsRead();
 
     const unreadCount = notifications?.filter((n: any) => !n.read).length || 0;
+
+    useEffect(() => {
+        if (isProfileLoaded && profile) {
+            // Update the user store with fresh data from the server
+            // This ensures edited permissions take effect without logout
+            setUser({
+                id: profile.id || profile._id,
+                name: profile.name,
+                email: profile.email,
+                role: profile.role,
+                permissions: profile.permissions
+            });
+        }
+    }, [isProfileLoaded, profile, setUser]);
 
     useEffect(() => {
         const socket = getSocket();
@@ -303,6 +321,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     {children}
                 </div>
             </main>
+
+            {/* Global Chat Panel */}
+            <ChatPanel
+                isOpen={isChatOpen}
+                onClose={closeChat}
+            />
         </div>
     );
 };

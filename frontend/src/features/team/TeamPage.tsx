@@ -9,11 +9,13 @@ import {
     CheckCircle2,
     AlertCircle,
     Shield,
-    Check
+    Check,
+    MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTeam, useDeleteMember, useUpdateMember, useRegister, useUpdateMemberPermissions } from '../../hooks/useApi';
 import { useAuthStore } from '../../store/authStore';
+import { useChatStore } from '../../store/chatStore';
 import { Loader2 } from 'lucide-react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useForm } from 'react-hook-form';
@@ -162,11 +164,15 @@ const UserRow: React.FC<{
     onDelete: (id: string) => void;
     isSuperAdmin: boolean;
 }> = ({ user, index, onEdit, onDelete, isSuperAdmin }) => {
-    const menuItems: ActionMenuItem[] = [];
+    const { openPersonalChat } = useChatStore();
+    const menuItems: ActionMenuItem[] = [
+        { id: 'chat', label: 'Chat', icon: MessageCircle, onClick: () => openPersonalChat(user.id || user._id, user.name) }
+    ];
+
     if (isSuperAdmin && user.role !== 'SUPER_ADMIN') {
         menuItems.push(
             { id: 'edit', label: 'Edit Permissions', icon: Shield, onClick: () => onEdit(user) },
-            { id: 'delete', label: 'Remove Member', icon: Trash2, onClick: () => onDelete(user.id), destructive: true },
+            { id: 'delete', label: 'Remove Member', icon: Trash2, onClick: () => onDelete(user.id || user._id), destructive: true },
         );
     }
 
@@ -216,7 +222,16 @@ const UserRow: React.FC<{
                 </span>
             </td>
             <td className="py-4 px-6 text-right">
-                {menuItems.length > 0 && <ActionMenu items={menuItems} />}
+                <div className="flex items-center justify-end gap-2">
+                    <button
+                        onClick={() => openPersonalChat(user.id || user._id, user.name)}
+                        className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="Chat with member"
+                    >
+                        <MessageCircle size={18} />
+                    </button>
+                    {menuItems.length > 1 && <ActionMenu items={menuItems} />}
+                </div>
             </td>
         </motion.tr>
     );
@@ -401,7 +416,7 @@ const TeamPage: React.FC = () => {
                         <tbody>
                             {filteredUsers?.map((u: any, index: number) => (
                                 <UserRow
-                                    key={u.id}
+                                    key={u.id || u._id}
                                     user={u}
                                     index={index}
                                     onEdit={handleEdit}
@@ -409,10 +424,10 @@ const TeamPage: React.FC = () => {
                                     isSuperAdmin={isSuperAdmin}
                                 />
                             ))}
-                            {filteredUsers?.length === 0 && (
+                            {(filteredUsers?.length === 0 || !users) && (
                                 <tr>
                                     <td colSpan={4} className="py-20 text-center text-secondary-500 italic">
-                                        No members found.
+                                        {!users ? "You don't have permission to view team members." : "No members found."}
                                     </td>
                                 </tr>
                             )}
