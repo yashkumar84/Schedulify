@@ -9,6 +9,8 @@ interface MessageBubbleProps {
     onEdit?: (messageId: string, newContent: string) => void;
 }
 
+import { createPortal } from 'react-dom';
+
 // --- WhatsApp-style image lightbox ---
 const ImageLightbox: React.FC<{ src: string; alt?: string; onClose: () => void }> = ({ src, alt, onClose }) => {
     useEffect(() => {
@@ -27,46 +29,47 @@ const ImageLightbox: React.FC<{ src: string; alt?: string; onClose: () => void }
         document.body.removeChild(link);
     };
 
-    return (
+    return createPortal(
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-sm flex flex-col"
+            className="fixed inset-0 z-[99999] bg-black/95 backdrop-blur-sm flex flex-col"
             onClick={onClose}
         >
             {/* Top toolbar */}
-            <div className="flex items-center justify-between px-4 py-3 z-10" onClick={e => e.stopPropagation()}>
-                <p className="text-white/70 text-sm truncate max-w-xs">{alt || 'Image'}</p>
-                <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 py-4 z-10 bg-gradient-to-b from-black/50 to-transparent" onClick={e => e.stopPropagation()}>
+                <p className="text-white/90 font-medium text-sm truncate max-w-xs">{alt || 'Image'}</p>
+                <div className="flex items-center gap-3">
                     <button
                         onClick={handleDownload}
-                        className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors backdrop-blur-md"
                     >
-                        <Download size={14} /> Download
+                        <Download size={16} /> Download
                     </button>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                        className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors backdrop-blur-md"
                     >
-                        <X size={18} />
+                        <X size={20} />
                     </button>
                 </div>
             </div>
 
             {/* Image centred */}
             <div
-                className="flex-1 flex items-center justify-center p-4"
+                className="flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
                 <img
                     src={src}
                     alt={alt}
-                    className="max-w-full max-h-full object-contain rounded-xl select-none"
+                    className="max-w-full max-h-full object-contain rounded-xl select-none shadow-2xl"
                     draggable={false}
                 />
             </div>
-        </motion.div>
+        </motion.div>,
+        document.body
     );
 };
 

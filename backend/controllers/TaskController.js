@@ -232,6 +232,7 @@ const getProjectTasks = async (req, res) => {
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email role')
       .populate('approvedBy', 'name email')
+      .populate('comments.user', 'name email role')
       .sort({ createdAt: -1 });
 
     res.json(tasks);
@@ -272,6 +273,7 @@ const getAdminAllTasks = async (req, res) => {
       .populate('project', 'name clientName')
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email role')
+      .populate('comments.user', 'name email role')
       .sort({ createdAt: -1 });
 
     res.json(tasks);
@@ -430,7 +432,8 @@ const addComment = async (req, res) => {
       .populate('comments.user', 'name email role')
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email role')
-      .populate('approvedBy', 'name email');
+      .populate('approvedBy', 'name email')
+      .populate('project', 'name');
 
     // Notify assigned user if someone else commented
     if (task.assignedTo && task.assignedTo.toString() !== userId.toString()) {

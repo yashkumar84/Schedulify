@@ -61,6 +61,12 @@ const useS3 = !!((process.env.AWS_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID) &
   (process.env.AWS_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY) &&
   (process.env.AWS_BUCKET_NAME || process.env.AWS_S3_BUCKET));
 
+if (useS3) {
+  console.log('✅ AWS S3 Upload Configured');
+} else {
+  console.warn('⚠️ AWS S3 Config Missing. Using local /uploads folder.');
+}
+
 const upload = multer({
   storage: useS3 ? s3Storage : diskStorage,
   fileFilter: fileFilter,
@@ -74,28 +80,36 @@ const upload = multer({
  * @desc    Upload a file for chat or tasks
  * @access  Private
  */
-router.post('/', authenticate, upload.single('file'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+router.post('/', authenticate, (req, res) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('Upload Error:', err);
+      return res.status(500).json({ message: 'File upload failed', error: err.message });
     }
 
-    // Determine type
-    let type = 'file';
-    if (req.file.mimetype.startsWith('image/')) type = 'image';
-    else if (req.file.mimetype.startsWith('video/')) type = 'video';
-    else if (req.file.mimetype.startsWith('audio/')) type = 'audio';
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
 
-    res.json({
-      url: useS3 ? req.file.location : `/uploads/${req.file.filename}`,
-      fileName: req.file.originalname,
-      fileSize: req.file.size,
-      mimetype: req.file.mimetype,
-      type
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+      // Determine type
+      let type = 'file';
+      if (req.file.mimetype.startsWith('image/')) type = 'image';
+      else if (req.file.mimetype.startsWith('video/')) type = 'video';
+      else if (req.file.mimetype.startsWith('audio/')) type = 'audio';
+
+      res.json({
+        url: useS3 ? req.file.location : `/uploads/${req.file.filename}`,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        mimetype: req.file.mimetype,
+        type
+      });
+    } catch (error) {
+      console.error('File Processing Error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
 });
 
 module.exports = router;
