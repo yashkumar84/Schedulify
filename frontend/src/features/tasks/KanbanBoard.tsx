@@ -278,9 +278,12 @@ const KanbanBoard: React.FC = () => {
 
     const handleUpdateTask = (taskId: string, data: any) => {
         updateTaskMutation.mutate({ taskId, data }, {
-            onSuccess: () => {
-                setIsDetailModalOpen(false);
-                setSelectedTask(null);
+            onSuccess: (updatedTask: any) => {
+                // Update selectedTask with fresh data from server so changes show immediately
+                if (updatedTask && selectedTask?._id === taskId) {
+                    setSelectedTask(updatedTask);
+                }
+                // Keep modal open so user can see the changes — close manually
             }
         });
     };

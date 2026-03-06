@@ -189,7 +189,14 @@ const updateTaskStatus = async (req, res) => {
         console.error('Notification error:', notifyErr);
       }
 
-      res.json(updatedTask);
+      const populatedTask = await Task.findById(updatedTask._id)
+        .populate('assignedTo', 'name email')
+        .populate('createdBy', 'name email role')
+        .populate('approvedBy', 'name email')
+        .populate('comments.user', 'name email role')
+        .populate('project', 'name');
+
+      res.json(populatedTask);
     } else {
       res.status(404).json({ message: 'Task not found' });
     }

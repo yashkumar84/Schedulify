@@ -135,10 +135,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
         try {
             const data = await uploadMutation.mutateAsync(file);
-            // After successful upload, update the task with the new file URL
+            // Files stored as {name, url} to match backend Task model schema
             const currentFiles = task.files || [];
             onUpdate?.(task._id || task.id, {
-                files: [...currentFiles, data.url]
+                files: [...currentFiles, { name: data.fileName || file.name, url: data.url }]
             });
         } catch (error) {
             console.error('File upload failed:', error);
