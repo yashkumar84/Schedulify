@@ -90,9 +90,20 @@ const updateTaskStatus = async (req, res) => {
     const oldStatus = task.status;
     const isStatusChanging = status && status !== oldStatus;
 
-    // Apply updates
+    // Apply updates — handle each field explicitly to avoid Mongoose validation issues
     if (status) task.status = status;
-    Object.assign(task, otherUpdates);
+    if (otherUpdates.title !== undefined) task.title = otherUpdates.title;
+    if (otherUpdates.description !== undefined) task.description = otherUpdates.description;
+    if (otherUpdates.dueDate !== undefined) task.dueDate = otherUpdates.dueDate;
+    if (otherUpdates.assignedTo !== undefined) task.assignedTo = otherUpdates.assignedTo;
+    if (otherUpdates.priority !== undefined) task.priority = otherUpdates.priority;
+    if (otherUpdates.files !== undefined) {
+      // Files stored as [{name, url}] objects
+      task.files = otherUpdates.files.map((f) => {
+        if (typeof f === 'string') return { name: f.split('/').pop() || 'file', url: f };
+        return { name: f.name || f.url?.split('/').pop() || 'file', url: f.url };
+      });
+    }
 
     if (isStatusChanging || finalRemark) {
       let actionText = `Updated task`;
