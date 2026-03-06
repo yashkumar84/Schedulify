@@ -1,0 +1,50 @@
+backend-1  | [0mPOST /api/auth/register [32m201[0m 4040.776 ms - 453[0m
+backend-1  | [0mGET /api/team [32m200[0m 5.237 ms - 1640[0m
+backend-1  | [0mGET /api/team [36m304[0m 6.747 ms - -[0m
+backend-1  | [0mGET /api/notifications [36m304[0m 5.324 ms - -[0m
+backend-1  | [0mPOST /api/auth/register [32m201[0m 3761.152 ms - 447[0m
+backend-1  | [0mGET /api/team [32m200[0m 19.424 ms - 2042[0m
+backend-1  | ❌ User disconnected: Super Admin (uTZKosTUdDMXjsNOAAAB)
+backend-1  | ❌ User disconnected: Yash (iODEVdrHwI_wwmsYAAAF)
+backend-1  | ✅ User connected: Super Admin (3TwJavlJPhgcjZhdAAAH)
+backend-1  | ❌ User disconnected: Super Admin (3TwJavlJPhgcjZhdAAAH)
+backend-1  | 
+backend-1  | > backend@1.0.0 start
+backend-1  | > node server.js
+backend-1  | 
+backend-1  | [dotenv@17.2.4] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+backend-1  | 🚀 Server running on port 5000
+backend-1  | 💬 Socket.io server ready for chat
+backend-1  | ✅ MongoDB Connected: localhost
+backend-1  | 
+backend-1  | > backend@1.0.0 start
+backend-1  | > node server.js
+backend-1  | 
+backend-1  | [dotenv@17.2.4] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+backend-1  | 🚀 Server running on port 5000
+backend-1  | 💬 Socket.io server ready for chat
+backend-1  | ✅ MongoDB Connected: localhost
+backend-1  | 
+backend-1  | > backend@1.0.0 start
+backend-1  | > node server.js
+backend-1  | 
+backend-1  | [dotenv@17.2.4] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+backend-1  | 🚀 Server running on port 5000
+backend-1  | 💬 Socket.io server ready for chat
+backend-1  | ✅ MongoDB Connected: localhost
+backend-1  | 
+backend-1  | > backend@1.0.0 start
+backend-1  | > node server.js
+backend-1  | 
+backend-1  | [dotenv@17.2.4] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+backend-1  | 🚀 Server running on port 5000
+backend-1  | 💬 Socket.io server ready for chat
+backend-1  | ✅ MongoDB Connected: localhost
+backend-1  | 
+backend-1  | > backend@1.0.0 start
+backend-1  | > node server.js
+backend-1  | 
+backend-1  | [dotenv@17.2.4] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+backend-1  | 🚀 Server running on port 5000
+backend-1  | 💬 Socket.io server ready for chat
+backend-1  | ✅ MongoDB Connected: localhost

@@ -116,6 +116,14 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
+    # Local Uploads
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host \$host;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+
     # Socket.io Support
     location /socket.io/ {
         proxy_pass http://127.0.0.1:5000;
