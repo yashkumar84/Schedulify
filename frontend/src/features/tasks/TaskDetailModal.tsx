@@ -444,14 +444,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         </div>
                         {task.files && task.files.length > 0 ? (
                             <div className="space-y-2">
-                                {task.files.map((file: string, index: number) => {
-                                    const fileName = file.split('/').pop() || 'Attachment';
+                                {task.files.map((file: any, index: number) => {
+                                    // Support both {name, url} objects and legacy plain strings
+                                    const fileUrl = typeof file === 'string' ? file : file.url;
+                                    const fileName = typeof file === 'string'
+                                        ? (file.split('/').pop() || 'Attachment')
+                                        : (file.name || file.url?.split('/').pop() || 'Attachment');
                                     return (
                                         <div key={index} className="flex items-center gap-2 p-3 bg-secondary-50 rounded-lg">
                                             <Paperclip size={14} className="text-secondary-500" />
                                             <span className="text-sm flex-1 truncate">{fileName}</span>
                                             <a
-                                                href={file}
+                                                href={fileUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-primary-600 text-xs font-bold hover:underline"
