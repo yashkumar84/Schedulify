@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { useProfile, useUpdateProfile, useChangePassword } from '../../hooks/useApi';
+import { useProfile, useUpdateProfile, useChangePassword, useUpload } from '../../hooks/useApi';
 import {
     User,
     Mail,
@@ -22,6 +22,9 @@ const ProfilePage: React.FC = () => {
     const { data: profile, isLoading: isProfileLoading } = useProfile();
     const updateProfileMutation = useUpdateProfile();
     const changePasswordMutation = useChangePassword();
+    const uploadMutation = useUpload();
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     const [profileSuccess, setProfileSuccess] = useState(false);
     const [passwordSuccess, setPasswordSuccess] = useState(false);
@@ -40,6 +43,26 @@ const ProfilePage: React.FC = () => {
                 setTimeout(() => setProfileSuccess(false), 3000);
             },
         });
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingAvatar(true);
+        try {
+            const data = await uploadMutation.mutateAsync(file);
+            updateProfileMutation.mutate({ avatar: data.url }, {
+                onSuccess: () => {
+                    setProfileSuccess(true);
+                    setTimeout(() => setProfileSuccess(false), 3000);
+                }
+            });
+        } catch (err) {
+            console.error('Avatar upload failed:', err);
+        } finally {
+            setUploadingAvatar(false);
+            if (avatarInputRef.current) avatarInputRef.current.value = '';
+        }
     };
 
     const onChangePassword = (data: any) => {
@@ -94,8 +117,21 @@ const ProfilePage: React.FC = () => {
                                     <UserCircle size={80} className="text-primary-600" />
                                 )}
                             </div>
-                            <button className="absolute bottom-1 right-1 p-2 bg-primary-600 text-white rounded-full shadow-lg hover:bg-primary-700 transition-colors">
-                                <Camera size={18} />
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={avatarInputRef}
+                                onChange={handleAvatarUpload}
+                                className="hidden"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => avatarInputRef.current?.click()}
+                                disabled={uploadingAvatar}
+                                title="Change profile photo"
+                                className="absolute bottom-1 right-1 p-2 bg-primary-600 text-white rounded-full shadow-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
+                            >
+                                {uploadingAvatar ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
                             </button>
                         </div>
                         <h3 className="text-xl font-bold mt-4">{profile?.name}</h3>

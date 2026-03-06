@@ -44,7 +44,8 @@ const userSchema = new mongoose.Schema({
   forgotPasswordToken: { type: String, default: '' },
   forgotPasswordCode: { type: String, default: '' },
   isLoggedIn: { type: Boolean, default: false },
-  lastLogin: { type: Date }
+  lastLogin: { type: Date },
+  avatar: { type: String, default: '' }
 }, {
   timestamps: true
 });

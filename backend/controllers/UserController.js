@@ -237,12 +237,16 @@ const updateUserProfile = async (req, res) => {
   const user = await User.findById(req.user.id);
   if (user) {
     user.name = req.body.name || user.name;
+    if (req.body.avatar !== undefined) {
+      user.avatar = req.body.avatar;
+    }
     const updatedUser = await user.save();
     res.json({
       _id: updatedUser._id,
       name: updatedUser.name,
       email: updatedUser.email,
       role: updatedUser.role,
+      avatar: updatedUser.avatar,
       permissions: updatedUser.permissions
     });
   } else {
