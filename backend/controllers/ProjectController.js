@@ -115,6 +115,9 @@ const createProject = async (req, res) => {
     const templatePath = path.join(__dirname, '../templates/ProjectAssignment.html');
     if (fs.existsSync(templatePath)) {
       const templateHtml = fs.readFileSync(templatePath, 'utf8');
+      const Notification = require('../models/Notification');
+      const { sendNotification } = require('../lib/socket');
+
       for (const recipient of recipientMap.values()) {
         const html = templateHtml
           .replace(/{{PROJECT_NAME}}/g, name)
@@ -125,9 +128,32 @@ const createProject = async (req, res) => {
           .replace(/{{LOGIN_URL}}/g, process.env.CLIENT_URL || 'http://localhost:5173');
 
         try {
+          // Send Email
           await sendEmail({ email: recipient.email, subject: `Assigned to New Project: ${name}`, html });
+
+          // Send In-app Notification (skip for current user)
+          const recipientUser = [managerUser, ...collaboratorUsers, ...superAdmins].find(u => u.email === recipient.email);
+          if (recipientUser && recipientUser._id.toString() !== currentUserId.toString()) {
+            const notification = new Notification({
+              recipient: recipientUser._id,
+              sender: currentUserId,
+              type: 'PROJECT_ASSIGNMENT',
+              message: `You have been assigned to project "${name}" as ${recipient.role}`,
+              link: `/projects/${createdProject._id}`
+            });
+            const savedNotification = await notification.save();
+
+            sendNotification(recipientUser._id.toString(), {
+              _id: savedNotification._id,
+              type: savedNotification.type,
+              message: savedNotification.message,
+              link: savedNotification.link,
+              createdAt: savedNotification.createdAt,
+              sender: { name: req.user.name }
+            });
+          }
         } catch (error) {
-          console.error(`Email Error for ${recipient.email}:`, error);
+          console.error(`Notification Error for ${recipient.email}:`, error);
         }
       }
     }
@@ -190,6 +216,9 @@ const updateProject = async (req, res) => {
       const templatePath = path.join(__dirname, '../templates/ProjectAssignment.html');
       if (fs.existsSync(templatePath)) {
         const templateHtml = fs.readFileSync(templatePath, 'utf8');
+        const Notification = require('../models/Notification');
+        const { sendNotification } = require('../lib/socket');
+
         for (const user of collaboratorUsers) {
           const html = templateHtml
             .replace(/{{PROJECT_NAME}}/g, project.name)
@@ -200,9 +229,31 @@ const updateProject = async (req, res) => {
             .replace(/{{LOGIN_URL}}/g, process.env.CLIENT_URL || 'http://localhost:5173');
 
           try {
+            // Send Email
             await sendEmail({ email: user.email, subject: `You've been added to project: ${project.name}`, html });
+
+            // Send In-app Notification
+            if (user._id.toString() !== req.user.id.toString()) {
+              const notification = new Notification({
+                recipient: user._id,
+                sender: req.user.id,
+                type: 'PROJECT_ASSIGNMENT',
+                message: `You have been added to project "${project.name}"`,
+                link: `/projects/${project._id}`
+              });
+              const savedNotification = await notification.save();
+
+              sendNotification(user._id.toString(), {
+                _id: savedNotification._id,
+                type: savedNotification.type,
+                message: savedNotification.message,
+                link: savedNotification.link,
+                createdAt: savedNotification.createdAt,
+                sender: { name: req.user.name }
+              });
+            }
           } catch (emailErr) {
-            console.error(`Email failed for ${user.email}:`, emailErr.message);
+            console.error(`Notification failed for ${user.email}:`, emailErr.message);
           }
         }
       }

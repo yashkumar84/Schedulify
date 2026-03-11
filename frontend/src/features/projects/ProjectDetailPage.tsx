@@ -247,23 +247,21 @@ const ProjectDetailPage: React.FC = () => {
                         <MessageCircle size={18} />
                         Chat
                     </button>
-                    {(!user?.permissions?.team?.read) && (
-                        <>
-                            {(user?.role === 'SUPER_ADMIN' || user?.permissions?.projects?.update) && (
-                                <button
-                                    onClick={handleEditProject}
-                                    className="px-5 py-2.5 bg-card border border-border rounded-xl font-semibold hover:bg-secondary-50 transition-colors text-sm"
-                                >
-                                    Edit Project
-                                </button>
-                            )}
-                            <button
-                                onClick={() => setIsNewTaskModalOpen(true)}
-                                className="px-5 py-2.5 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 transition-all shadow-lg shadow-primary-600/20 text-sm flex items-center gap-2"
-                            >
-                                <Plus size={18} /> New Task
-                            </button>
-                        </>
+                    {(user?.role === 'SUPER_ADMIN' || user?.permissions?.projects?.update) && (
+                        <button
+                            onClick={handleEditProject}
+                            className="px-5 py-2.5 bg-card border border-border rounded-xl font-semibold hover:bg-secondary-50 transition-colors text-sm"
+                        >
+                            Edit Project
+                        </button>
+                    )}
+                    {(user?.role === 'SUPER_ADMIN' || user?.permissions?.tasks?.create) && (
+                        <button
+                            onClick={() => setIsNewTaskModalOpen(true)}
+                            className="px-5 py-2.5 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 transition-all shadow-lg shadow-primary-600/20 text-sm flex items-center gap-2"
+                        >
+                            <Plus size={18} /> New Task
+                        </button>
                     )}
                 </div>
             </div>

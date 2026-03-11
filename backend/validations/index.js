@@ -16,7 +16,7 @@ const taskSchema = z.object({
   project: z.string().min(1, 'Project ID is required'),
   description: z.string().optional(),
   assignedTo: z.string().optional(),
-  priority: z.enum(['low', 'medium', 'high']).optional(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   dueDate: z.string().or(z.date()).optional()
 });
 

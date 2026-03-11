@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { X, MessageCircle, Loader2, ArrowLeft, Clock, Users } from 'lucide-react';
 import { useChat } from '../../hooks/useChat';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import OnlineUsers from './OnlineUsers';
-import { useTeam } from '../../hooks/useApi';
+import { useTeam, useRecentChats } from '../../hooks/useApi';
 import { useChatStore } from '../../store/chatStore';
+import { useAuthStore } from '../../store/authStore';
 
 interface ChatPanelProps {
     isOpen: boolean;
@@ -20,14 +21,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 
     // Sync local state with store when opened/changed
     useEffect(() => {
+        if (isOpen) {
+            useChatStore.getState().setHasUnreadMessages(false);
+        }
+
         if (projectId) {
             setChatMode('project');
             setSelectedUser(null);
         } else if (receiverId) {
             setChatMode('personal');
             setSelectedUser({ id: receiverId, name: receiverName || 'User' });
+        } else if (isOpen) {
+            setChatMode('personal');
+            setSelectedUser(null);
         }
-    }, [projectId, receiverId, receiverName]);
+    }, [projectId, receiverId, receiverName, isOpen]);
 
     const {
         messages,
@@ -45,6 +53,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
     );
 
     const { data: teamMembers } = useTeam();
+    const { data: recentChats } = useRecentChats();
+    const { user } = useAuthStore();
+    const canSeeTeam = user?.role === 'SUPER_ADMIN' || user?.permissions?.team?.read;
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom when new messages arrive
@@ -65,56 +77,63 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
             >
                 {/* Header */}
                 <div className="flex flex-col border-b border-border bg-primary-600 text-white">
-                    <div className="flex items-center justify-between p-4">
-                        <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between p-4 min-h-[64px]">
+                        <div className="flex items-center gap-3 overflow-hidden">
                             {chatMode === 'personal' && selectedUser ? (
-                                <button onClick={() => setSelectedUser(null)} className="p-1 hover:bg-white/10 rounded-full transition-colors mr-1">
-                                    <ArrowLeft size={18} />
+                                <button
+                                    onClick={() => setSelectedUser(null)}
+                                    className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors shrink-0"
+                                    aria-label="Back to contacts"
+                                >
+                                    <ArrowLeft size={20} />
                                 </button>
                             ) : (
-                                <MessageCircle size={20} />
+                                <div className="p-2 -ml-2 bg-white/10 rounded-xl shrink-0">
+                                    <MessageCircle size={20} />
+                                </div>
                             )}
-                            <div>
-                                <h3 className="font-semibold text-sm">
-                                    {chatMode === 'project' ? projectName : (selectedUser ? selectedUser.name : 'Personal Chat')}
+                            <div className="min-w-0">
+                                <h3 className="font-bold text-sm truncate leading-tight">
+                                    {chatMode === 'project' ? projectName : (selectedUser ? selectedUser.name : 'Team Conversations')}
                                 </h3>
-                                <p className="text-xs opacity-90">
+                                <div className="flex items-center gap-1.5 mt-0.5">
                                     {isConnected ? (
-                                        <span className="flex items-center gap-1">
-                                            <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                                            Connected
-                                        </span>
+                                        <>
+                                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.5)]"></span>
+                                            <span className="text-[10px] font-medium opacity-80 uppercase tracking-wider">Live</span>
+                                        </>
                                     ) : (
-                                        <span className="flex items-center gap-1">
-                                            <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
-                                            Connecting...
-                                        </span>
+                                        <>
+                                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+                                            <span className="text-[10px] font-medium opacity-80 uppercase tracking-wider">Connecting...</span>
+                                        </>
                                     )}
-                                </p>
+                                </div>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center transition-colors"
+                            className="w-10 h-10 -mr-2 rounded-xl hover:bg-white/10 flex items-center justify-center transition-colors shrink-0"
+                            aria-label="Close chat"
                         >
-                            <X size={20} />
+                            <X size={24} />
                         </button>
                     </div>
 
                     {/* Mode Toggle - only if we have a project context */}
                     {!selectedUser && projectId && (
-                        <div className="flex px-4 pb-2 gap-4">
+                        <div className="flex px-4 pb-3 gap-1">
                             <button
                                 onClick={() => setChatMode('project')}
-                                className={`text-xs font-bold pb-1 border-b-2 transition-all ${chatMode === 'project' ? 'border-white opacity-100' : 'border-transparent opacity-60'}`}
+                                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest ${chatMode === 'project' ? 'bg-white text-primary-600 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/5'}`}
                             >
-                                Project
+                                Project Feed
                             </button>
                             <button
                                 onClick={() => setChatMode('personal')}
-                                className={`text-xs font-bold pb-1 border-b-2 transition-all ${chatMode === 'personal' ? 'border-white opacity-100' : 'border-transparent opacity-60'}`}
+                                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest ${chatMode === 'personal' ? 'bg-white text-primary-600 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/5'}`}
                             >
-                                Chat with Team
+                                Direct Messages
                             </button>
                         </div>
                     )}
@@ -143,23 +162,70 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 
                     {chatMode === 'personal' && !selectedUser ? (
                         /* User List for Personal Chat */
-                        <div className="p-4 space-y-2 relative z-10">
-                            <h4 className="text-xs font-bold text-secondary-500 uppercase tracking-widest mb-4">Select Team Member</h4>
-                            {teamMembers?.map((member: any) => (
-                                <button
-                                    key={member._id}
-                                    onClick={() => setSelectedUser({ id: member._id, name: member.name })}
-                                    className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:border-primary-600 transition-all group"
-                                >
-                                    <div className="w-10 h-10 rounded-full bg-secondary-100 flex items-center justify-center text-secondary-600 font-bold group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors">
-                                        {member.name.charAt(0)}
+                        <div className="p-4 space-y-4 relative z-10">
+                            {recentChats && recentChats.length > 0 && (
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-secondary-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <Clock size={12} />
+                                        Recent Conversations
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {recentChats.map((chat: any) => (
+                                            <button
+                                                key={chat._id}
+                                                onClick={() => setSelectedUser({ id: chat._id, name: chat.name })}
+                                                className="w-full flex items-center gap-3 p-3 bg-secondary-50/50 border border-border rounded-xl hover:border-primary-600 hover:bg-white transition-all group"
+                                            >
+                                                <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold">
+                                                    {chat.name.charAt(0)}
+                                                </div>
+                                                <div className="text-left flex-1 min-w-0">
+                                                    <div className="flex justify-between items-center mb-0.5">
+                                                        <p className="text-sm font-bold truncate">{chat.name}</p>
+                                                        <span className="text-[9px] text-secondary-400">
+                                                            {new Date(chat.lastMessageAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-secondary-500 truncate italic">"{chat.lastMessage}"</p>
+                                                </div>
+                                            </button>
+                                        ))}
                                     </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold">{member.name}</p>
-                                        <p className="text-xs text-secondary-500">{member.role.replace('_', ' ')}</p>
+                                </div>
+                            )}
+
+                            {canSeeTeam && teamMembers && teamMembers.length > 0 && (
+                                <div className="mt-6">
+                                    <h4 className="text-[10px] font-bold text-secondary-500 uppercase tracking-widest mb-3">All Team Members</h4>
+                                    <div className="space-y-2">
+                                        {teamMembers?.map((member: any) => (
+                                            <button
+                                                key={member._id}
+                                                onClick={() => setSelectedUser({ id: member._id, name: member.name })}
+                                                className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:border-primary-600 transition-all group"
+                                            >
+                                                <div className="w-10 h-10 rounded-full bg-secondary-100 flex items-center justify-center text-secondary-600 font-bold group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors">
+                                                    {member.name.charAt(0)}
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="text-sm font-bold">{member.name}</p>
+                                                    <p className="text-[10px] text-secondary-500 uppercase tracking-tighter">{member.role.replace('_', ' ')}</p>
+                                                </div>
+                                            </button>
+                                        ))}
                                     </div>
-                                </button>
-                            ))}
+                                </div>
+                            )}
+
+                            {!canSeeTeam && (!recentChats || recentChats.length === 0) && (
+                                <div className="text-center py-10 px-4">
+                                    <Users size={40} className="mx-auto text-secondary-300 mb-3" />
+                                    <p className="text-sm font-medium text-secondary-600">No active conversations</p>
+                                    <p className="text-xs text-secondary-400 mt-1">
+                                        Wait for a team member or admin to message you to start a chat.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         /* Message List */

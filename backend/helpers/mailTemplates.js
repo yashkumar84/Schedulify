@@ -69,4 +69,21 @@ const getOverdueTaskTemplate = (task) => {
   });
 };
 
-module.exports = { getBaseTemplate, getTaskStatusUpdateTemplate, getOverdueTaskTemplate };
+const getTaskAssignmentTemplate = (task, assigner) => {
+  return getBaseTemplate('New Task Assigned', {
+    body: `
+      <h2>New Task Assigned</h2>
+      <p>Hello,</p>
+      <p>You have been assigned a new task: <strong>"${task.title}"</strong>.</p>
+      <div style="margin: 20px 0; padding: 15px; background-color: #f3f4f6; border-radius: 8px; text-align: left;">
+        <p style="margin: 5px 0;"><strong>Priority:</strong> <span style="text-transform: capitalize;">${task.priority}</span></p>
+        <p style="margin: 5px 0;"><strong>Due Date:</strong> ${task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date set'}</p>
+        <p style="margin: 5px 0;"><strong>Assigned By:</strong> ${assigner.name}</p>
+      </div>
+      <p style="color: #6b7280; font-size: 14px;">Description: ${task.description || 'No description provided'}</p>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/tasks" class="btn">View Task</a>
+    `
+  });
+};
+
+module.exports = { getBaseTemplate, getTaskStatusUpdateTemplate, getOverdueTaskTemplate, getTaskAssignmentTemplate };

@@ -209,10 +209,49 @@ const editMessage = async (req, res) => {
   }
 };
 
+// @desc    Get recent chat participants
+// @route   GET /api/chat/recent
+// @access  Private
+const getRecentChats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Find all personal messages where the user is either sender or receiver
+    const messages = await Message.find({
+      project: { $exists: false },
+      $or: [{ sender: userId }, { receiver: userId }]
+    })
+      .sort({ createdAt: -1 })
+      .populate('sender', 'name email role')
+      .populate('receiver', 'name email role');
+
+    // Extract unique participants (excluding the current user)
+    const participants = new Map();
+    messages.forEach(msg => {
+      const otherUser = msg.sender._id.toString() === userId.toString() ? msg.receiver : msg.sender;
+      if (otherUser && !participants.has(otherUser._id.toString())) {
+        participants.set(otherUser._id.toString(), {
+          _id: otherUser._id,
+          name: otherUser.name,
+          email: otherUser.email,
+          role: otherUser.role,
+          lastMessage: msg.content,
+          lastMessageAt: msg.createdAt
+        });
+      }
+    });
+
+    res.json(Array.from(participants.values()));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getProjectMessages,
   getPersonalMessages,
   createMessage,
   deleteMessage,
-  editMessage
+  editMessage,
+  getRecentChats
 };

@@ -55,6 +55,44 @@ const createTask = async (req, res) => {
       description: `Task "${title}" was created by ${req.user.name} and is ${task.approvalStatus}`
     });
 
+    // Notify assigned user
+    if (assignedTo && assignedTo.toString() !== userId.toString()) {
+      try {
+        const notification = new Notification({
+          recipient: assignedTo,
+          sender: userId,
+          type: 'TASK_ASSIGNMENT',
+          message: `${req.user.name} assigned you a new task: "${title}"`,
+          link: `/tasks`
+        });
+        const savedNotification = await notification.save();
+
+        // Real-time broadcast
+        const { sendNotification } = require('../lib/socket');
+        sendNotification(assignedTo.toString(), {
+          _id: savedNotification._id,
+          type: savedNotification.type,
+          message: savedNotification.message,
+          link: savedNotification.link,
+          createdAt: savedNotification.createdAt,
+          sender: { name: req.user.name }
+        });
+
+        // Email notification
+        const assignedUser = await User.findById(assignedTo);
+        const { getTaskAssignmentTemplate } = require('../helpers/mailTemplates');
+        if (assignedUser && assignedUser.email) {
+          await sendEmail({
+            email: assignedUser.email,
+            subject: `New Task Assigned: ${title}`,
+            html: getTaskAssignmentTemplate(createdTask, req.user)
+          });
+        }
+      } catch (err) {
+        console.error('Task assignment notification error:', err);
+      }
+    }
+
     res.status(201).json(createdTask);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -88,7 +126,9 @@ const updateTaskStatus = async (req, res) => {
     }
 
     const oldStatus = task.status;
+    const oldAssignedTo = task.assignedTo ? (task.assignedTo._id ? task.assignedTo._id.toString() : task.assignedTo.toString()) : undefined;
     const isStatusChanging = status && status !== oldStatus;
+    const isAssignmentChanging = otherUpdates.assignedTo && otherUpdates.assignedTo.toString() !== oldAssignedTo;
 
     // Apply updates — handle each field explicitly to avoid Mongoose validation issues
     if (status) task.status = status;
@@ -206,6 +246,44 @@ const updateTaskStatus = async (req, res) => {
         .populate('approvedBy', 'name email')
         .populate('comments.user', 'name email role')
         .populate('project', 'name');
+
+      // Notify new assignee if assignment changed
+      if (isAssignmentChanging && otherUpdates.assignedTo && otherUpdates.assignedTo.toString() !== req.user._id.toString()) {
+        try {
+          const notification = new Notification({
+            recipient: otherUpdates.assignedTo,
+            sender: req.user._id,
+            type: 'TASK_ASSIGNMENT',
+            message: `${req.user.name} assigned you a task: "${task.title}"`,
+            link: `/tasks`
+          });
+          const savedNotification = await notification.save();
+
+          // Real-time broadcast
+          const { sendNotification } = require('../lib/socket');
+          sendNotification(otherUpdates.assignedTo.toString(), {
+            _id: savedNotification._id,
+            type: savedNotification.type,
+            message: savedNotification.message,
+            link: savedNotification.link,
+            createdAt: savedNotification.createdAt,
+            sender: { name: req.user.name }
+          });
+
+          // Email notification
+          const newAssignee = await User.findById(otherUpdates.assignedTo);
+          const { getTaskAssignmentTemplate } = require('../helpers/mailTemplates');
+          if (newAssignee && newAssignee.email) {
+            await sendEmail({
+              email: newAssignee.email,
+              subject: `Task Assigned: ${task.title}`,
+              html: getTaskAssignmentTemplate(populatedTask, req.user)
+            });
+          }
+        } catch (err) {
+          console.error('Task reassignment notification error:', err);
+        }
+      }
 
       res.json(populatedTask);
     } else {

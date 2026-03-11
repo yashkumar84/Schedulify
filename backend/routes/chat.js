@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getProjectMessages, getPersonalMessages, createMessage, deleteMessage, editMessage } = require('../controllers/ChatController');
+const { getProjectMessages, getPersonalMessages, createMessage, deleteMessage, editMessage, getRecentChats } = require('../controllers/ChatController');
 const { authenticate } = require('../helpers/auth');
 
 // All chat routes require authentication
 router.use(authenticate);
 
+router.get('/recent', getRecentChats);
 router.get('/:projectId/messages', getProjectMessages);
 router.get('/personal/:userId', getPersonalMessages);
 router.post('/:projectId/messages', createMessage);

@@ -26,7 +26,7 @@ const StatCard: React.FC<{
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay }}
-        className="bg-card p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow"
+        className="bg-card p-4 sm:p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow"
     >
         <div className="flex items-center justify-between mb-4">
             <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
@@ -140,9 +140,9 @@ const DashboardPage: React.FC = () => {
                         ) : (
                             statsData.activeProjects.map((project: any, index: number) => (
                                 <div key={index} className="cursor-pointer group" onClick={() => navigate(`/projects/${project._id || project.id}`)}>
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="font-medium text-secondary-900 group-hover:text-primary-600 transition-colors">{project.name}</span>
-                                        <span className="text-secondary-500">{project.progress}%</span>
+                                    <div className="flex justify-between text-sm mb-2 gap-2">
+                                        <span className="font-medium text-secondary-900 group-hover:text-primary-600 transition-colors truncate">{project.name}</span>
+                                        <span className="text-secondary-500 shrink-0">{project.progress}%</span>
                                     </div>
                                     <div className="h-2 w-full bg-secondary-100 rounded-full overflow-hidden">
                                         <motion.div

@@ -18,7 +18,8 @@ import {
     Bell,
     Search,
     UserCircle,
-    Clock
+    Clock,
+    MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -26,7 +27,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const { user, logout, setUser } = useAuthStore();
-    const { isOpen: isChatOpen, closeChat } = useChatStore();
+    const { isOpen: isChatOpen, closeChat, openGlobalChat, hasUnreadMessages, setHasUnreadMessages } = useChatStore();
     const navigate = useNavigate();
 
 
@@ -57,11 +58,21 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             socket.on('new-notification', () => {
                 refetchNotifications();
             });
+
+            socket.on('new-message', (message: any) => {
+                // If chat is closed OR chat is open but not for this context, mark as unread
+                // Note: ChatPanel handles context switching, so simplified logic: if panel closed, mark unread
+                if (!isChatOpen && message.sender._id !== user?.id) {
+                    setHasUnreadMessages(true);
+                }
+            });
+
             return () => {
                 socket.off('new-notification');
+                socket.off('new-message');
             };
         }
-    }, [refetchNotifications]);
+    }, [refetchNotifications, isChatOpen, setHasUnreadMessages, user?.id]);
 
     const handleLogout = () => {
         logout();
@@ -78,6 +89,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         { name: 'Global Tasks', icon: AlertCircle, path: '/global-tasks', visible: isSuperAdmin },
         { name: 'Expenses', icon: CreditCard, path: '/expenses', visible: isSuperAdmin || !!perms?.finance?.read },
         { name: 'Team', icon: Users, path: '/team', visible: isSuperAdmin || !!perms?.team?.read },
+        { name: 'Messages', icon: MessageCircle, onClick: openGlobalChat, visible: true },
         { name: 'Profile', icon: UserCircle, path: '/profile', visible: true },
     ];
 
@@ -140,20 +152,37 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
                             <nav className="flex-1 space-y-2">
                                 {filteredNavItems.map((item) => (
-                                    <NavLink
-                                        key={item.path}
-                                        to={item.path}
-                                        onClick={() => setIsSidebarOpen(false)}
-                                        className={({ isActive }) =>
-                                            `flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive
-                                                ? 'bg-primary-50 text-primary-600 font-semibold'
-                                                : 'text-secondary-600 hover:bg-secondary-50'
-                                            }`
-                                        }
-                                    >
-                                        <item.icon size={20} />
-                                        {item.name}
-                                    </NavLink>
+                                    item.path ? (
+                                        <NavLink
+                                            key={item.path}
+                                            to={item.path}
+                                            onClick={() => setIsSidebarOpen(false)}
+                                            className={({ isActive }) =>
+                                                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive
+                                                    ? 'bg-primary-50 text-primary-600 font-semibold'
+                                                    : 'text-secondary-600 hover:bg-secondary-50'
+                                                }`
+                                            }
+                                        >
+                                            <item.icon size={20} />
+                                            {item.name}
+                                        </NavLink>
+                                    ) : (
+                                        <button
+                                            key={item.name}
+                                            onClick={() => {
+                                                item.onClick?.();
+                                                setIsSidebarOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-secondary-600 hover:bg-secondary-50 relative"
+                                        >
+                                            <item.icon size={20} />
+                                            {item.name}
+                                            {item.name === 'Messages' && hasUnreadMessages && (
+                                                <span className="absolute top-4 right-4 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                                            )}
+                                        </button>
+                                    )
                                 ))}
                             </nav>
 
@@ -178,19 +207,33 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
                 <nav className="flex-1 space-y-1">
                     {filteredNavItems.map((item) => (
-                        <NavLink
-                            key={item.path}
-                            to={item.path}
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive
-                                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20'
-                                    : 'text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900'
-                                }`
-                            }
-                        >
-                            <item.icon size={20} />
-                            {item.name}
-                        </NavLink>
+                        item.path ? (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                className={({ isActive }) =>
+                                    `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                                        ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20'
+                                        : 'text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900'
+                                    }`
+                                }
+                            >
+                                <item.icon size={20} />
+                                {item.name}
+                            </NavLink>
+                        ) : (
+                            <button
+                                key={item.name}
+                                onClick={item.onClick}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900 relative"
+                            >
+                                <item.icon size={20} />
+                                {item.name}
+                                {item.name === 'Messages' && hasUnreadMessages && (
+                                    <span className="absolute top-3 right-4 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                                )}
+                            </button>
+                        )
                     ))}
                 </nav>
 

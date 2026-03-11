@@ -333,6 +333,16 @@ export const useTeam = () => {
     });
 };
 
+export const useRecentChats = () => {
+    return useQuery({
+        queryKey: ['recent-chats'],
+        queryFn: async () => {
+            const response = await api.get('/chat/recent');
+            return response.data;
+        },
+    });
+};
+
 export const useUpdateUserRole = () => {
     const queryClient = useQueryClient();
     return useMutation({

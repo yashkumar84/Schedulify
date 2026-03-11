@@ -60,7 +60,7 @@ const ProjectCard: React.FC<{
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05 }}
             onClick={handleCardClick}
-            className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg transition-all group cursor-pointer"
+            className="bg-card rounded-2xl border border-border p-4 sm:p-6 hover:shadow-lg transition-all group cursor-pointer"
         >
             <div className="flex justify-between items-start mb-4">
                 <div className={`px-3 py-1 rounded-full text-xs font-bold ${project.status === ProjectStatus.IN_PROGRESS ? 'bg-primary-100 text-primary-600' :
@@ -247,7 +247,7 @@ const ProjectListPage: React.FC = () => {
     }
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Projects</h1>
