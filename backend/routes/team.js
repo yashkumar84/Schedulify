@@ -11,11 +11,11 @@ const { updateUserRole } = require('../controllers/UserController');
 const { authenticate, authorize, checkPermission } = require('../helpers/auth');
 const { Roles } = require('../config/global');
 
-// Get all team members — requires team.read permission (or SUPER_ADMIN)
-router.get('/', authenticate, checkPermission('team', 'read'), getTeamMembers);
+// Get all team members — any authenticated user (needed for task assignment)
+router.get('/', authenticate, getTeamMembers);
 
-// Kept for backward compat — same permission gating
-router.get('/role/:role', authenticate, checkPermission('team', 'read'), getMembersByRole);
+// Kept for backward compat
+router.get('/role/:role', authenticate, getMembersByRole);
 
 // Admin-only mutations
 router.put('/:id/role', authenticate, authorize(Roles.SUPER_ADMIN), updateUserRole);
