@@ -152,6 +152,48 @@ const initializeSocket = (io) => {
           // Broadcast to all users in the project room
           io.to(`project:${message.project}`).emit('new-message', messagePayload);
           console.log(`💬 ${message.type} message sent in project ${message.project} by ${socket.user.name}`);
+
+          // Notify all project members (excluding sender) via bell notification
+          try {
+            const Project = require('../models/Project');
+            const project = await Project.findById(message.project).select('manager collaborators name');
+            if (project) {
+              // Gather all member IDs: manager + collaborators
+              const memberIds = [
+                project.manager?.toString(),
+                ...(project.collaborators || []).map(id => id.toString())
+              ].filter(id => id && id !== userId); // exclude sender
+
+              // Remove duplicates
+              const uniqueMemberIds = [...new Set(memberIds)];
+
+              const previewText = content.length > 40 ? content.substring(0, 40) + '...' : content;
+              const notificationMessage = `${socket.user.name} posted in "${project.name}": "${previewText}"`;
+
+              for (const memberId of uniqueMemberIds) {
+                const notification = new Notification({
+                  recipient: memberId,
+                  sender: socket.user._id,
+                  type: 'CHAT_MESSAGE',
+                  message: notificationMessage,
+                  link: `/projects/${message.project}` // link to the project
+                });
+                const savedNotification = await notification.save();
+
+                io.to(`user:${memberId}`).emit('new-notification', {
+                  _id: savedNotification._id,
+                  type: savedNotification.type,
+                  message: savedNotification.message,
+                  link: savedNotification.link,
+                  createdAt: savedNotification.createdAt,
+                  sender: { name: socket.user.name }
+                });
+              }
+            }
+          } catch (notifyErr) {
+            console.error('Error sending project chat notifications:', notifyErr);
+          }
+
         } else if (message.receiver) {
           // Send to receiver's room and sender's room
           const receiverIdStr = message.receiver._id.toString();
