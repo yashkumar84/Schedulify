@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/config');
 const User = require('../models/User');
 const Message = require('../models/Message');
+const Notification = require('../models/Notification');
 
 // Store active users per project
 const activeUsers = new Map(); // projectId -> Set of { userId, socketId, userName }
@@ -157,6 +158,30 @@ const initializeSocket = (io) => {
           io.to(`user:${receiverIdStr}`).emit('new-message', messagePayload);
           io.to(`user:${userId}`).emit('new-message', messagePayload);
           console.log(`👤 Personal message sent from ${socket.user.name} to ${receiverIdStr}`);
+
+          // Create formal Notification
+          try {
+            const notification = new Notification({
+              recipient: message.receiver._id,
+              sender: socket.user._id,
+              type: 'CHAT_MESSAGE',
+              message: `${socket.user.name} sent you a message: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`,
+              link: '/messages' // This will trigger global chat open via a route check or similar, or just help them know
+            });
+            const savedNotification = await notification.save();
+
+            // Emit notification event
+            io.to(`user:${receiverIdStr}`).emit('new-notification', {
+              _id: savedNotification._id,
+              type: savedNotification.type,
+              message: savedNotification.message,
+              link: savedNotification.link,
+              createdAt: savedNotification.createdAt,
+              sender: { name: socket.user.name }
+            });
+          } catch (notifyErr) {
+            console.error('Error creating chat notification:', notifyErr);
+          }
         }
       } catch (error) {
         console.error('Error sending message:', error);

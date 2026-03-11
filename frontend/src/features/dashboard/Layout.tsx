@@ -288,8 +288,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             <AnimatePresence>
                                 {isNotificationOpen && (
                                     <>
+                                        {/* Overlay - lowered z-index relative to dropdown but fixed to cover screen */}
                                         <div
-                                            className="fixed inset-0 z-40"
+                                            className="fixed inset-0 z-[45]"
                                             onClick={() => setIsNotificationOpen(false)}
                                         />
                                         <motion.div
@@ -302,7 +303,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                                                 <h3 className="font-bold text-secondary-900">Notifications</h3>
                                                 {unreadCount > 0 && (
                                                     <button
-                                                        onClick={() => markAllRead.mutate()}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            markAllRead.mutate();
+                                                        }}
                                                         className="text-xs text-primary-600 hover:underline font-semibold"
                                                     >
                                                         Mark all as read
@@ -321,7 +325,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                                                     notifications.map((n: any) => (
                                                         <div
                                                             key={n._id}
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 if (!n.read) markRead.mutate(n._id);
                                                                 if (n.link) navigate(n.link);
                                                                 setIsNotificationOpen(false);

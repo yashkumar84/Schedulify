@@ -143,12 +143,16 @@ export const useChat = (projectId?: string, receiverId?: string) => {
         // Socket event listeners
         const handleNewMessage = (message: Message) => {
             // Only add message if it belongs to current context
-            if (projectId && message.project === projectId) {
+            const messageProjectId = message.project;
+            const messageSenderId = message.sender?._id;
+            const messageReceiverId = message.receiver?._id;
+
+            if (projectId && messageProjectId === projectId) {
                 setMessages(prev => [...prev, message]);
             } else if (receiverId) {
-                // In personal chat, message payload has receiver and sender
-                const matches = (message.sender._id === receiverId) || (message.receiver?._id === receiverId);
-                if (matches && !message.project) {
+                // In personal chat, show if message is between us and the other user (either direction)
+                const matches = messageSenderId === receiverId || messageReceiverId === receiverId;
+                if (matches && !messageProjectId) {
                     setMessages(prev => [...prev, message]);
                 }
             }
