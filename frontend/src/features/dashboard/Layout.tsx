@@ -101,7 +101,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <div className="lg:hidden flex items-center justify-between p-4 bg-card border-b border-border sticky top-0 z-50">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-primary-600 rounded-lg" />
-                    <span className="font-bold text-xl tracking-tight">schedulifuNow</span>
+                    <span className="font-bold text-xl tracking-tight">SchedulifyNow</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="relative">
@@ -209,7 +209,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 bg-primary-600 rounded-lg" />
-                                    <span className="font-bold text-xl tracking-tight">schedulifuNow</span>
+                                    <span className="font-bold text-xl tracking-tight">SchedulifyNow</span>
                                 </div>
                                 <button onClick={() => setIsSidebarOpen(false)}>
                                     <X size={24} className="text-secondary-500" />
@@ -268,7 +268,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-card border-r border-border p-6 flex-col">
                 <div className="flex items-center gap-2 mb-10">
                     <div className="w-8 h-8 bg-primary-600 rounded-lg shadow-lg shadow-primary-500/20" />
-                    <span className="font-bold text-xl tracking-tight">schedulifuNow</span>
+                    <span className="font-bold text-xl tracking-tight">SchedulifyNow</span>
                 </div>
 
                 <nav className="flex-1 space-y-1">

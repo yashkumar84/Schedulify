@@ -81,13 +81,14 @@ const getPersonalMessages = async (req, res) => {
 const createMessage = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { receiverId, content, type = 'text' } = req.body;
+    const { receiverId, content, type = 'text', metadata = null } = req.body;
     const userId = req.user._id;
 
     const messageData = {
       sender: userId,
       content,
-      type
+      type,
+      metadata
     };
 
     if (projectId && projectId !== 'personal') {

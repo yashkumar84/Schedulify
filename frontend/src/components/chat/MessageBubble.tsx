@@ -212,7 +212,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                         {message.type === 'image' && message.metadata?.fileUrl && (
                             <div className="relative group/media mt-0.5 -mx-1 -my-1 rounded-xl overflow-hidden bg-black/5">
                                 <img
-                                    src={message.metadata.fileUrl}
+                                    src={message.metadata.fileUrl.startsWith('/')
+                                        ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                        : message.metadata.fileUrl
+                                    }
                                     alt={message.metadata.fileName}
                                     className="max-w-full max-h-[300px] object-cover rounded-lg cursor-pointer hover:brightness-90 transition-all duration-200"
                                     loading="lazy"
@@ -230,7 +233,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                         {/* VIDEO */}
                         {message.type === 'video' && message.metadata?.fileUrl && (
                             <div className="mt-1 -mx-1 -my-1 relative group/media overflow-hidden rounded-xl bg-black min-w-[200px]">
-                                <video className="max-w-full rounded-lg" src={message.metadata.fileUrl} />
+                                <video
+                                    controls
+                                    className="w-full"
+                                    src={message.metadata.fileUrl.startsWith('/')
+                                        ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                        : message.metadata.fileUrl
+                                    }
+                                />
                                 <div
                                     className="absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer hover:bg-black/40 transition-colors"
                                     onClick={() => window.open(message.metadata?.fileUrl, '_blank')}
@@ -251,14 +261,24 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                         {message.metadata.fileName}
                                     </span>
                                 </div>
-                                <audio controls className="w-full h-8" src={message.metadata.fileUrl} />
+                                <audio
+                                    controls
+                                    className="w-full h-8"
+                                    src={message.metadata.fileUrl.startsWith('/')
+                                        ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                        : message.metadata.fileUrl
+                                    }
+                                />
                             </div>
                         )}
 
                         {/* FILE */}
                         {message.type === 'file' && message.metadata?.fileUrl && (
                             <a
-                                href={message.metadata.fileUrl}
+                                href={message.metadata.fileUrl.startsWith('/')
+                                    ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                    : message.metadata.fileUrl
+                                }
                                 download={message.metadata.fileName}
                                 target="_blank"
                                 rel="noopener noreferrer"

@@ -142,13 +142,21 @@ const ProjectDetailPage: React.FC = () => {
         if (deleteConfirm.type === 'project') {
             deleteProjectMutation.mutate(deleteConfirm.id, {
                 onSuccess: () => {
-                    navigate('/projects');
+                    setNotification({ message: 'Project deleted successfully!', type: 'success' });
+                    setTimeout(() => navigate('/projects'), 1500);
+                },
+                onError: (error: any) => {
+                    setNotification({ message: error.response?.data?.message || 'Failed to delete project', type: 'error' });
                 }
             });
         } else if (deleteConfirm.type === 'task') {
             deleteTaskMutation.mutate(deleteConfirm.id, {
                 onSuccess: () => {
                     setDeleteConfirm({ isOpen: false, type: null, id: null });
+                    setNotification({ message: 'Task deleted successfully!', type: 'success' });
+                },
+                onError: (error: any) => {
+                    setNotification({ message: error.response?.data?.message || 'Failed to delete task', type: 'error' });
                 }
             });
         }
@@ -162,6 +170,10 @@ const ProjectDetailPage: React.FC = () => {
             onSuccess: () => {
                 setIsNewTaskModalOpen(false);
                 taskForm.reset();
+                setNotification({ message: 'Task created successfully!', type: 'success' });
+            },
+            onError: (error: any) => {
+                setNotification({ message: error.response?.data?.message || 'Failed to create task', type: 'error' });
             }
         });
     };

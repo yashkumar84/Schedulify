@@ -52,6 +52,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
             });
         } catch (error) {
             console.error('Upload failed:', error);
+            alert('File upload failed. Please try again.');
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -109,6 +110,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
                     });
                 } catch (err) {
                     console.error('Voice upload failed:', err);
+                    alert('Failed to send voice message. Please try again.');
                 } finally {
                     setIsUploading(false);
                 }

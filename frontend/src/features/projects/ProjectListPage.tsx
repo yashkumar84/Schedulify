@@ -47,8 +47,11 @@ const ProjectCard: React.FC<{
 
     const menuItems: ActionMenuItem[] = [
         { id: 'edit', label: 'Edit Project', icon: Edit2, onClick: () => onEdit(project) },
-        { id: 'delete', label: 'Delete Project', icon: Trash2, onClick: () => onDelete(project._id || project.id), destructive: true },
     ];
+
+    if (user?.role === 'SUPER_ADMIN' || user?.permissions?.projects?.delete) {
+        menuItems.push({ id: 'delete', label: 'Delete Project', icon: Trash2, onClick: () => onDelete(project._id || project.id), destructive: true });
+    }
 
     const handleCardClick = () => {
         navigate(`/projects/${project._id || project.id}`);
@@ -206,6 +209,10 @@ const ProjectListPage: React.FC = () => {
             deleteProjectMutation.mutate(deleteConfirm.projectId, {
                 onSuccess: () => {
                     setDeleteConfirm({ isOpen: false, projectId: null });
+                    setNotification({ message: 'Project deleted successfully!', type: 'success' });
+                },
+                onError: (err: any) => {
+                    setNotification({ message: err.response?.data?.message || 'Failed to delete project', type: 'error' });
                 }
             });
         }
@@ -379,7 +386,9 @@ const ProjectListPage: React.FC = () => {
                                             <ActionMenu items={[
                                                 { id: 'view', label: 'View Details', icon: ChevronRight, onClick: () => navigate(`/projects/${project._id || project.id}`) },
                                                 { id: 'edit', label: 'Edit', icon: Edit2, onClick: () => handleEdit(project) },
-                                                { id: 'delete', label: 'Delete', icon: Trash2, onClick: () => handleDelete(project._id || project.id), destructive: true },
+                                                ...(user?.role === 'SUPER_ADMIN' || user?.permissions?.projects?.delete ? [
+                                                    { id: 'delete', label: 'Delete', icon: Trash2, onClick: () => handleDelete(project._id || project.id), destructive: true }
+                                                ] : []),
                                             ]} />
                                         )}
                                     </td>

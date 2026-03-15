@@ -30,12 +30,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
             setSelectedUser(null);
         } else if (receiverId) {
             setChatMode('personal');
-            setSelectedUser({ id: receiverId, name: receiverName || 'User' });
+            // Only update selectedUser if it's different to prevent name switching mid-chat
+            if (!selectedUser || selectedUser.id !== receiverId) {
+                setSelectedUser({ id: receiverId, name: receiverName || 'User' });
+            }
         } else if (isOpen) {
             setChatMode('personal');
             setSelectedUser(null);
         }
-    }, [projectId, receiverId, receiverName, isOpen]);
+    }, [projectId, receiverId, receiverName, isOpen, selectedUser]);
 
     const {
         messages,
