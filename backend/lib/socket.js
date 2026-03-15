@@ -176,7 +176,7 @@ const initializeSocket = (io) => {
                   sender: socket.user._id,
                   type: 'CHAT_MESSAGE',
                   message: notificationMessage,
-                  link: `/projects/${message.project}` // link to the project
+                  link: `chat:project:${message.project}:${project.name}` // Custom format for frontend interception
                 });
                 const savedNotification = await notification.save();
 

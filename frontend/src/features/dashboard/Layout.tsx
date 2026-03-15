@@ -27,7 +27,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const { user, logout, setUser } = useAuthStore();
-    const { isOpen: isChatOpen, closeChat, openGlobalChat, openPersonalChat, hasUnreadMessages, setHasUnreadMessages } = useChatStore();
+    const {
+        isOpen: isChatOpen,
+        closeChat,
+        openGlobalChat,
+        openProjectChat,
+        openPersonalChat,
+        hasUnreadMessages,
+        setHasUnreadMessages
+    } = useChatStore();
     const navigate = useNavigate();
 
 
@@ -55,21 +63,27 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     useEffect(() => {
         const socket = getSocket();
         if (socket) {
-            socket.on('new-notification', () => {
+            const handleNotification = () => {
                 refetchNotifications();
-            });
+            };
 
-            socket.on('new-message', (message: any) => {
+            const handleMessage = (message: any) => {
                 // If chat is closed OR chat is open but not for this context, mark as unread
-                // Note: ChatPanel handles context switching, so simplified logic: if panel closed, mark unread
-                if (!isChatOpen && message.sender._id !== user?.id) {
+                // Note: ChatPanel handles context switching internally, but we show the indicator globally
+                const currentUserId = user?.id || (user as any)?._id;
+                const senderId = message.sender?._id || message.sender?.id;
+
+                if (!isChatOpen && senderId !== currentUserId) {
                     setHasUnreadMessages(true);
                 }
-            });
+            };
+
+            socket.on('new-notification', handleNotification);
+            socket.on('new-message', handleMessage);
 
             return () => {
-                socket.off('new-notification');
-                socket.off('new-message');
+                socket.off('new-notification', handleNotification);
+                socket.off('new-message', handleMessage);
             };
         }
     }, [refetchNotifications, isChatOpen, setHasUnreadMessages, user?.id]);
@@ -155,6 +169,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                                                                 if (n.link.startsWith('chat:personal:')) {
                                                                     const senderId = n.link.replace('chat:personal:', '');
                                                                     openPersonalChat(senderId, n.sender?.name || 'User');
+                                                                } else if (n.link.startsWith('chat:project:')) {
+                                                                    const parts = n.link.split(':');
+                                                                    const prjId = parts[2];
+                                                                    const prjName = parts[3] || 'Project';
+                                                                    openProjectChat(prjId, prjName);
                                                                 } else {
                                                                     navigate(n.link);
                                                                 }
@@ -396,11 +415,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                                                                 if (!n.read) markRead.mutate(n._id);
                                                                 setIsNotificationOpen(false);
                                                                 if (n.link) {
-                                                                    // Intercept special chat:personal: links to open chat panel
+                                                                    // Intercept special chat: links to open chat panel
                                                                     if (n.link.startsWith('chat:personal:')) {
                                                                         const senderId = n.link.replace('chat:personal:', '');
                                                                         const senderName = n.sender?.name || 'User';
                                                                         openPersonalChat(senderId, senderName);
+                                                                    } else if (n.link.startsWith('chat:project:')) {
+                                                                        const parts = n.link.split(':');
+                                                                        const prjId = parts[2];
+                                                                        const prjName = parts[3] || 'Project';
+                                                                        openProjectChat(prjId, prjName);
                                                                     } else {
                                                                         navigate(n.link);
                                                                     }

@@ -19,26 +19,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
     const [chatMode, setChatMode] = useState<'project' | 'personal'>('project');
     const [selectedUser, setSelectedUser] = useState<{ id: string, name: string } | null>(null);
 
-    // Sync local state with store when opened/changed
+    // Sync store context to local state only when store values change
     useEffect(() => {
         if (isOpen) {
             useChatStore.getState().setHasUnreadMessages(false);
         }
 
         if (projectId) {
-            if (chatMode !== 'project') setChatMode('project');
-            if (selectedUser !== null) setSelectedUser(null);
+            // Force project mode if store has a project
+            setChatMode('project');
+            setSelectedUser(null);
         } else if (receiverId) {
-            if (chatMode !== 'personal') setChatMode('personal');
-            // Only update selectedUser if it's different to prevent name switching mid-chat
-            if (!selectedUser || selectedUser.id !== receiverId) {
-                setSelectedUser({ id: receiverId, name: receiverName || 'User' });
-            }
+            // Force personal mode with specific user if store has a receiver
+            setChatMode('personal');
+            setSelectedUser({ id: receiverId, name: receiverName || 'User' });
         } else if (isOpen) {
+            // General open: default to personal list if no specific context
+            // But DON'T wipe out selectedUser if we just manually picked one inside the panel
             if (chatMode !== 'personal') setChatMode('personal');
-            if (selectedUser !== null) setSelectedUser(null);
         }
-    }, [projectId, receiverId, receiverName, isOpen, selectedUser, chatMode]);
+    }, [projectId, receiverId, receiverName, isOpen]); // Removed local state from deps to prevent loop
 
     const {
         messages,

@@ -149,7 +149,11 @@ export const useChat = (projectId?: string, receiverId?: string) => {
             const messageReceiverId = message.receiver?._id;
 
             if (projectId && messageProjectId === projectId) {
-                setMessages(prev => [...prev, message]);
+                setMessages(prev => {
+                    // Avoid duplicates (already done for personal, now for project)
+                    if (prev.some(m => m._id === message._id)) return prev;
+                    return [...prev, message];
+                });
             } else if (receiverId) {
                 // In personal chat, show if message belongs to the current 1:1 conversation
                 // Two cases: (sender is the other user, receiver is us) OR (sender is us, receiver is other user)
