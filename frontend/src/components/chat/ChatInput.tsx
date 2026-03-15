@@ -104,17 +104,21 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
                     return;
                 }
 
+                console.log('Audio Blob created:', { size: audioBlob.size, type: audioBlob.type });
+
                 const ext = mimeType.includes('webm') ? 'webm' : 'ogg';
                 const audioFile = new File([audioBlob], `voice-note.${ext}`, { type: mimeType });
 
                 setIsUploading(true);
                 try {
                     const data = await onUploadFile(audioFile);
+                    console.log('Audio Upload Success:', data);
+
                     onSendMessage('🎤 Voice message', 'audio', {
                         fileName: data.fileName || audioFile.name,
                         fileUrl: data.url,
                         fileSize: data.fileSize,
-                        mimetype: mimeType,
+                        mimetype: data.mimetype || mimeType,
                         duration: recordingSeconds
                     });
                 } catch (err) {

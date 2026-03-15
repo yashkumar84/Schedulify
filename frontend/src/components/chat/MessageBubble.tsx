@@ -282,7 +282,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                                 : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
                                             : message.metadata.fileUrl
                                         }
-                                        type={message.metadata.mimetype || 'audio/webm'}
+                                        type={message.metadata.mimetype?.split(';')[0] || 'audio/webm'}
                                     />
                                 </audio>
                             </div>
