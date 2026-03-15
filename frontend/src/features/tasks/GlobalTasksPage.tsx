@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAdminAllTasks } from '../../hooks/useApi';
+import { useNavigate } from 'react-router-dom';
 import {
     Loader2,
     User,
@@ -26,6 +27,7 @@ const priorityColors: Record<string, string> = {
 
 const GlobalTasksPage: React.FC = () => {
     const { data: tasks, isLoading, error } = useAdminAllTasks();
+    const navigate = useNavigate();
 
     if (isLoading) {
         return (
@@ -95,7 +97,16 @@ const GlobalTasksPage: React.FC = () => {
                                     </thead>
                                     <tbody className="divide-y divide-border">
                                         {projectTasks.map((task: any) => (
-                                            <tr key={task._id} className="hover:bg-secondary-50 transition-colors group">
+                                            <tr
+                                                key={task._id}
+                                                className="hover:bg-secondary-50 transition-colors group cursor-pointer"
+                                                onClick={() => {
+                                                    const projectId = task.project?._id || task.project?.id || task.project;
+                                                    if (projectId) {
+                                                        navigate(`/projects/${projectId}`);
+                                                    }
+                                                }}
+                                            >
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col min-w-[200px]">
                                                         <span className="font-bold text-secondary-900 group-hover:text-primary-600 transition-colors">

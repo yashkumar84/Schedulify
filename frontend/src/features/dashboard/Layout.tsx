@@ -27,7 +27,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const { user, logout, setUser } = useAuthStore();
-    const { isOpen: isChatOpen, closeChat, openGlobalChat, hasUnreadMessages, setHasUnreadMessages } = useChatStore();
+    const { isOpen: isChatOpen, closeChat, openGlobalChat, openPersonalChat, hasUnreadMessages, setHasUnreadMessages } = useChatStore();
     const navigate = useNavigate();
 
 
@@ -101,18 +101,84 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <div className="lg:hidden flex items-center justify-between p-4 bg-card border-b border-border sticky top-0 z-50">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-primary-600 rounded-lg" />
-                    <span className="font-bold text-xl tracking-tight">TaskiFy</span>
+                    <span className="font-bold text-xl tracking-tight">schedulifuNow</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                        className="p-2 text-secondary-600 hover:bg-secondary-100 rounded-lg relative"
-                    >
-                        <Bell size={24} />
-                        {unreadCount > 0 && (
-                            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
-                        )}
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                            className="p-2 text-secondary-600 hover:bg-secondary-100 rounded-lg relative"
+                        >
+                            <Bell size={24} />
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
+                            )}
+                        </button>
+                        <AnimatePresence>
+                            {isNotificationOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-[45]" onClick={() => setIsNotificationOpen(false)} />
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        className="absolute right-0 mt-3 w-80 max-w-[calc(100vw-2rem)] bg-card rounded-2xl border border-border shadow-2xl z-50 overflow-hidden"
+                                    >
+                                        <div className="p-4 border-b border-border flex items-center justify-between bg-secondary-50/50">
+                                            <h3 className="font-bold text-secondary-900">Notifications</h3>
+                                            {unreadCount > 0 && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); markAllRead.mutate(); }}
+                                                    className="text-xs text-primary-600 hover:underline font-semibold"
+                                                >
+                                                    Mark all as read
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="max-h-[380px] overflow-y-auto scrollbar-hide">
+                                            {!notifications || notifications.length === 0 ? (
+                                                <div className="p-10 text-center">
+                                                    <div className="w-12 h-12 bg-secondary-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                        <Bell size={20} className="text-secondary-300" />
+                                                    </div>
+                                                    <p className="text-sm text-secondary-500">No notifications yet</p>
+                                                </div>
+                                            ) : (
+                                                notifications.map((n: any) => (
+                                                    <div
+                                                        key={n._id}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (!n.read) markRead.mutate(n._id);
+                                                            setIsNotificationOpen(false);
+                                                            if (n.link) {
+                                                                if (n.link.startsWith('chat:personal:')) {
+                                                                    const senderId = n.link.replace('chat:personal:', '');
+                                                                    openPersonalChat(senderId, n.sender?.name || 'User');
+                                                                } else {
+                                                                    navigate(n.link);
+                                                                }
+                                                            }
+                                                        }}
+                                                        className={`p-4 border-b border-border hover:bg-secondary-50 cursor-pointer transition-colors relative group ${!n.read ? 'bg-primary-50/30' : ''}`}
+                                                    >
+                                                        {!n.read && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-600" />}
+                                                        <p className={`text-sm mb-1 ${!n.read ? 'font-semibold text-secondary-900' : 'text-secondary-600'}`}>
+                                                            {n.message}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 text-xs text-secondary-400">
+                                                            <Clock size={12} />
+                                                            {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                </>
+                            )}
+                        </AnimatePresence>
+                    </div>
                     <button
                         onClick={() => setIsSidebarOpen(true)}
                         className="p-2 text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors"
@@ -143,7 +209,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 bg-primary-600 rounded-lg" />
-                                    <span className="font-bold text-xl tracking-tight">TaskiFy</span>
+                                    <span className="font-bold text-xl tracking-tight">schedulifuNow</span>
                                 </div>
                                 <button onClick={() => setIsSidebarOpen(false)}>
                                     <X size={24} className="text-secondary-500" />
@@ -202,7 +268,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-card border-r border-border p-6 flex-col">
                 <div className="flex items-center gap-2 mb-10">
                     <div className="w-8 h-8 bg-primary-600 rounded-lg shadow-lg shadow-primary-500/20" />
-                    <span className="font-bold text-xl tracking-tight">TaskiFy</span>
+                    <span className="font-bold text-xl tracking-tight">schedulifuNow</span>
                 </div>
 
                 <nav className="flex-1 space-y-1">
@@ -328,8 +394,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 if (!n.read) markRead.mutate(n._id);
-                                                                if (n.link) navigate(n.link);
                                                                 setIsNotificationOpen(false);
+                                                                if (n.link) {
+                                                                    // Intercept special chat:personal: links to open chat panel
+                                                                    if (n.link.startsWith('chat:personal:')) {
+                                                                        const senderId = n.link.replace('chat:personal:', '');
+                                                                        const senderName = n.sender?.name || 'User';
+                                                                        openPersonalChat(senderId, senderName);
+                                                                    } else {
+                                                                        navigate(n.link);
+                                                                    }
+                                                                }
                                                             }}
                                                             className={`p-4 border-b border-border hover:bg-secondary-50 cursor-pointer transition-colors relative group ${!n.read ? 'bg-primary-50/30' : ''}`}
                                                         >

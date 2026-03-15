@@ -47,7 +47,7 @@ const ProjectCard: React.FC<{
 
     const menuItems: ActionMenuItem[] = [
         { id: 'edit', label: 'Edit Project', icon: Edit2, onClick: () => onEdit(project) },
-        { id: 'delete', label: 'Delete Project', icon: Trash2, onClick: () => onDelete(project._id), destructive: true },
+        { id: 'delete', label: 'Delete Project', icon: Trash2, onClick: () => onDelete(project._id || project.id), destructive: true },
     ];
 
     const handleCardClick = () => {
@@ -450,6 +450,7 @@ const ProjectListPage: React.FC = () => {
                                         <input
                                             {...register('startDate', { required: 'Start date is required' })}
                                             type="date"
+                                            min={new Date().toISOString().split('T')[0]}
                                             className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                                         />
                                         {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate?.message as string}</p>}
@@ -459,6 +460,7 @@ const ProjectListPage: React.FC = () => {
                                         <input
                                             {...register('endDate', { required: 'End date is required' })}
                                             type="date"
+                                            min={new Date().toISOString().split('T')[0]}
                                             className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                                         />
                                         {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate?.message as string}</p>}

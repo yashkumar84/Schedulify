@@ -55,10 +55,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     const [commentText, setCommentText] = useState('');
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
     const [localComments, setLocalComments] = useState<Comment[]>(task.comments || []);
+    const [localFiles, setLocalFiles] = useState<any[]>(task.files || []);
 
-    // Sync localComments if task prop changes (e.g. parent refetches)
+    // Sync localComments and localFiles if task prop changes
     React.useEffect(() => {
         setLocalComments(task.comments || []);
+        setLocalFiles(task.files || []);
     }, [task._id]);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
@@ -135,10 +137,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
         try {
             const data = await uploadMutation.mutateAsync(file);
-            // Files stored as {name, url} to match backend Task model schema
-            const currentFiles = task.files || [];
+            const newFile = { name: data.fileName || file.name, url: data.url };
+            // Optimistically update local file display immediately
+            setLocalFiles(prev => [...prev, newFile]);
             onUpdate?.(task._id || task.id, {
-                files: [...currentFiles, { name: data.fileName || file.name, url: data.url }]
+                files: [...localFiles, newFile]
             });
         } catch (error) {
             console.error('File upload failed:', error);
@@ -278,6 +281,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                         <input
                                             id="dueDate"
                                             type="date"
+                                            min={new Date().toISOString().split('T')[0]}
                                             {...register('dueDate')}
                                             className="w-full px-4 py-2.5 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                                         />
@@ -442,10 +446,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                 className="hidden"
                             />
                         </div>
-                        {task.files && task.files.length > 0 ? (
+                        {localFiles && localFiles.length > 0 ? (
                             <div className="space-y-2">
-                                {task.files.map((file: any, index: number) => {
-                                    // Support both {name, url} objects and legacy plain strings
+                                {localFiles.map((file: any, index: number) => {
                                     const fileUrl = typeof file === 'string' ? file : file.url;
                                     const fileName = typeof file === 'string'
                                         ? (file.split('/').pop() || 'Attachment')

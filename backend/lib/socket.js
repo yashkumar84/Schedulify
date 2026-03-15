@@ -208,7 +208,7 @@ const initializeSocket = (io) => {
               sender: socket.user._id,
               type: 'CHAT_MESSAGE',
               message: `${socket.user.name} sent you a message: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`,
-              link: '/messages' // This will trigger global chat open via a route check or similar, or just help them know
+              link: `chat:personal:${socket.user._id}` // Special format: frontend will intercept and open ChatPanel
             });
             const savedNotification = await notification.save();
 

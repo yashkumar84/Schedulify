@@ -78,9 +78,72 @@ const exportExpenses = async (req, res) => {
   }
 };
 
+// @desc    Update expense
+// @route   PUT /api/finance/:id
+// @access  Private (requires finance.update permission or being the requester)
+const updateExpense = async (req, res) => {
+  try {
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) {
+      return res.status(404).json({ message: 'Expense not found' });
+    }
+
+    // Allow update if user is the requester OR has finance.update permission OR is super admin
+    const isOwner = expense.requestedBy.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === Roles.SUPER_ADMIN;
+    const hasUpdatePermission = req.user.permissions?.finance?.update === true;
+
+    if (!isOwner && !isAdmin && !hasUpdatePermission) {
+      return res.status(403).json({ message: 'Not authorized to update this expense' });
+    }
+
+    // Only allow updating if status is pending (unless SuperAdmin)
+    if (expense.status !== 'pending' && !isAdmin) {
+      return res.status(400).json({ message: 'Cannot update an expense that is already processed' });
+    }
+
+    const updatedExpense = await Expense.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body },
+      { new: true, runValidators: true }
+    );
+
+    res.json(updatedExpense);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// @desc    Delete expense
+// @route   DELETE /api/finance/:id
+// @access  Private
+const deleteExpense = async (req, res) => {
+  try {
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) {
+      return res.status(404).json({ message: 'Expense not found' });
+    }
+
+    const isOwner = expense.requestedBy.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === Roles.SUPER_ADMIN;
+    const hasDeletePermission = req.user.permissions?.finance?.delete === true;
+
+    if (!isOwner && !isAdmin && !hasDeletePermission) {
+      return res.status(403).json({ message: 'Not authorized to delete this expense' });
+    }
+
+    await Expense.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Expense removed' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createExpense,
   updateExpenseStatus,
   getExpenses,
-  exportExpenses
+  exportExpenses,
+  updateExpense,
+  deleteExpense
 };

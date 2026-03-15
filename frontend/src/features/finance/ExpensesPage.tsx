@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import api from '../../utils/api';
 import { motion } from 'framer-motion';
-import { useExpenses, useCreateExpense, useProjects, useUpload } from '../../hooks/useApi';
+import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense, useProjects, useUpload } from '../../hooks/useApi';
 import { Loader2 } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import CustomSelect from '../../components/ui/CustomSelect';
@@ -22,11 +22,18 @@ import { useDebounce } from '../../hooks/useDebounce';
 import ActionMenu, { ActionMenuItem } from '../../components/ui/ActionMenu';
 import { useAuthStore } from '../../store/authStore';
 
-const ExpenseCard: React.FC<{ expense: any; index: number; onEdit: (expense: any) => void }> = ({ expense, index, onEdit }) => {
-    const menuItems: ActionMenuItem[] = [
-        { id: 'edit', label: 'Edit', icon: Edit2, onClick: () => onEdit(expense) },
-        { id: 'delete', label: 'Delete', icon: Trash2, onClick: () => { /* TODO: Implement delete */ }, destructive: true },
-    ];
+const ExpenseCard: React.FC<{ expense: any; index: number; user: any; onEdit: (expense: any) => void; onDelete: (expenseId: string) => void }> = ({ expense, index, user, onEdit, onDelete }) => {
+    const isOwner = expense.requestedBy?._id === user?.id || expense.requestedBy === user?.id || expense.requestedBy?._id === user?._id || expense.requestedBy === user?._id;
+    const isAdmin = user?.role === 'SUPER_ADMIN';
+    const hasUpdatePerm = user?.permissions?.finance?.update === true;
+    const hasDeletePerm = user?.permissions?.finance?.delete === true;
+
+    const canEdit = isAdmin || hasUpdatePerm || (isOwner && expense.status === 'pending');
+    const canDelete = isAdmin || hasDeletePerm || isOwner;
+
+    const menuItems: ActionMenuItem[] = [];
+    if (canEdit) menuItems.push({ id: 'edit', label: 'Edit', icon: Edit2, onClick: () => onEdit(expense) });
+    if (canDelete) menuItems.push({ id: 'delete', label: 'Delete', icon: Trash2, onClick: () => onDelete(expense._id || expense.id), destructive: true });
 
     return (
         <motion.div
@@ -40,7 +47,7 @@ const ExpenseCard: React.FC<{ expense: any; index: number; onEdit: (expense: any
                     <IndianRupee size={24} />
                 </div>
                 <div className="flex items-center gap-2">
-                    <ActionMenu items={menuItems} />
+                    {menuItems.length > 0 && <ActionMenu items={menuItems} />}
                 </div>
             </div>
 
@@ -79,6 +86,9 @@ const ExpensesPage: React.FC = () => {
     const uploadMutation = useUpload();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [invoiceFile, setInvoiceFile] = useState<any>(null);
+    const [editingExpense, setEditingExpense] = useState<any>(null);
+    const updateExpenseMutation = useUpdateExpense();
+    const deleteExpenseMutation = useDeleteExpense();
 
     const { register, handleSubmit, reset, control, formState: { errors }, setValue } = useForm();
 
@@ -89,21 +99,55 @@ const ExpensesPage: React.FC = () => {
             requestedBy: currentUser?.id || currentUser?._id,
         };
 
-        createExpenseMutation.mutate(payload, {
-            onSuccess: () => {
-                setIsModalOpen(false);
-                reset();
-                setInvoiceFile(null);
-            },
-            onError: (err: any) => {
-                alert(`Error: ${err.response?.data?.message || err.message || 'Unknown error'}`);
-            }
-        });
+        if (editingExpense) {
+            updateExpenseMutation.mutate({ expenseId: editingExpense._id || editingExpense.id, data: payload }, {
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                    setEditingExpense(null);
+                    reset();
+                    setInvoiceFile(null);
+                },
+                onError: (err: any) => {
+                    alert(`Error: ${err.response?.data?.message || err.message || 'Unknown error'}`);
+                }
+            });
+        } else {
+            createExpenseMutation.mutate(payload, {
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                    reset();
+                    setInvoiceFile(null);
+                },
+                onError: (err: any) => {
+                    alert(`Error: ${err.response?.data?.message || err.message || 'Unknown error'}`);
+                }
+            });
+        }
     };
 
     const handleEdit = (expense: any) => {
-        console.log('Editing expense:', expense);
-        // TODO: Implement edit functionality
+        setEditingExpense(expense);
+        setValue('title', expense.title);
+        setValue('amount', expense.amount);
+        setValue('project', expense.project?._id || expense.project?.id || expense.project);
+        setValue('description', expense.description || '');
+        setValue('invoiceUrl', expense.invoiceUrl || '');
+        if (expense.invoiceUrl) {
+            setInvoiceFile({ url: expense.invoiceUrl, fileName: expense.invoiceUrl.split('/').pop() });
+        } else {
+            setInvoiceFile(null);
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleDelete = async (expenseId: string) => {
+        if (window.confirm('Are you sure you want to delete this expense?')) {
+            deleteExpenseMutation.mutate(expenseId, {
+                onError: (err: any) => {
+                    alert(`Error: ${err.response?.data?.message || err.message || 'Unknown error'}`);
+                }
+            });
+        }
     };
 
 
@@ -202,7 +246,9 @@ const ExpensesPage: React.FC = () => {
                         key={expense._id}
                         expense={expense}
                         index={index}
+                        user={user}
                         onEdit={handleEdit}
+                        onDelete={handleDelete}
                     />
                 ))}
                 {filteredExpenses?.length === 0 && (
@@ -221,9 +267,13 @@ const ExpensesPage: React.FC = () => {
                         className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border p-8"
                     >
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold">Create New Expense</h2>
+                            <h2 className="text-2xl font-bold">{editingExpense ? 'Edit Expense' : 'Create New Expense'}</h2>
                             <button
-                                onClick={() => setIsModalOpen(false)}
+                                onClick={() => {
+                                    setIsModalOpen(false);
+                                    setEditingExpense(null);
+                                    reset();
+                                }}
                                 className="text-secondary-400 hover:text-secondary-600 transition-colors"
                             >
                                 <Trash2 size={24} className="rotate-45" />
@@ -278,6 +328,7 @@ const ExpensesPage: React.FC = () => {
                             <div>
                                 <label className="block text-sm font-medium mb-1">Invoice Photo</label>
                                 <div className="space-y-2">
+                                    <input type="hidden" {...register('invoiceUrl')} />
                                     {invoiceFile && (
                                         <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
                                             <FileText size={18} className="text-emerald-600" />
@@ -325,16 +376,20 @@ const ExpensesPage: React.FC = () => {
                             <div className="flex justify-end gap-3 mt-8">
                                 <button
                                     type="button"
-                                    onClick={() => setIsModalOpen(false)}
+                                    onClick={() => {
+                                        setIsModalOpen(false);
+                                        setEditingExpense(null);
+                                        reset();
+                                    }}
                                     className="px-6 py-2 rounded-xl font-semibold hover:bg-secondary-100 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
-                                    disabled={createExpenseMutation.isPending}
+                                    disabled={createExpenseMutation.isPending || updateExpenseMutation.isPending}
                                     className="bg-primary-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-primary-700 transition-all flex items-center gap-2"
                                 >
-                                    {createExpenseMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : 'Create Expense'}
+                                    {createExpenseMutation.isPending || updateExpenseMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : (editingExpense ? 'Update Expense' : 'Create Expense')}
                                 </button>
                             </div>
                         </form>

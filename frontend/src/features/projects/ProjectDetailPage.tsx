@@ -548,11 +548,11 @@ const ProjectDetailPage: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Start Date</label>
-                                    <input {...editForm.register('startDate')} type="date" className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500" />
+                                    <input {...editForm.register('startDate')} type="date" min={new Date().toISOString().split('T')[0]} className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">End Date</label>
-                                    <input {...editForm.register('endDate')} type="date" className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500" />
+                                    <input {...editForm.register('endDate')} type="date" min={new Date().toISOString().split('T')[0]} className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500" />
                                 </div>
                             </div>
                             <div>
@@ -614,11 +614,11 @@ const ProjectDetailPage: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Start Date</label>
-                                        <input {...taskForm.register('startDate', { required: true })} type="date" className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500" />
+                                        <input {...taskForm.register('startDate', { required: true })} type="date" min={new Date().toISOString().split('T')[0]} className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Due Date</label>
-                                        <input {...taskForm.register('dueDate', { required: true })} type="date" className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500" />
+                                        <input {...taskForm.register('dueDate', { required: true })} type="date" min={new Date().toISOString().split('T')[0]} className="w-full px-4 py-2 bg-secondary-50 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary-500" />
                                     </div>
                                 </div>
                             </div>

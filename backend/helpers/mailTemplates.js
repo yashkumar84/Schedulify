@@ -86,4 +86,27 @@ const getTaskAssignmentTemplate = (task, assigner) => {
   });
 };
 
-module.exports = { getBaseTemplate, getTaskStatusUpdateTemplate, getOverdueTaskTemplate, getTaskAssignmentTemplate };
+const getTaskOverdueReminderTemplate = (task, assignee) => {
+  return getBaseTemplate('Overdue Task Reminder', {
+    body: `
+      <h2>Task Deadline Reminder</h2>
+      <p>Hello ${assignee.name},</p>
+      <p>This is a reminder that the task <strong>"${task.title}"</strong> is due tomorrow.</p>
+      <div style="margin: 20px 0; padding: 15px; background-color: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7; text-align: left;">
+        <p style="margin: 5px 0;"><strong>Due Date:</strong> ${new Date(task.dueDate).toLocaleDateString()}</p>
+        <p style="margin: 5px 0;"><strong>Project:</strong> ${task.project?.name || 'N/A'}</p>
+        <p style="margin: 5px 0;"><strong>Status:</strong> <span style="text-transform: capitalize;">${task.status}</span></p>
+      </div>
+      <p style="color: #6b7280; font-size: 14px;">Please ensure to update the status or complete the task on time.</p>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/tasks" class="btn">View Task</a>
+    `
+  });
+};
+
+module.exports = {
+  getBaseTemplate,
+  getTaskStatusUpdateTemplate,
+  getOverdueTaskTemplate,
+  getTaskAssignmentTemplate,
+  getTaskOverdueReminderTemplate
+};

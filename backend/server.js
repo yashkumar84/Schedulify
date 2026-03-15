@@ -7,6 +7,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { connectDB, port } = require('./config/config');
 const { initializeSocket } = require('./lib/socket');
+const { startOverdueReminder } = require('./lib/overdueReminder');
 
 // Initialize app
 const app = express();
@@ -26,6 +27,7 @@ initializeSocket(io);
 
 // Connect to Database
 connectDB();
+startOverdueReminder();
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));

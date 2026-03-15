@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSocket } from '../utils/socket';
 import api from '../utils/api';
+import { useAuthStore } from '../store/authStore';
 
 export interface Message {
     _id: string;
@@ -150,10 +151,17 @@ export const useChat = (projectId?: string, receiverId?: string) => {
             if (projectId && messageProjectId === projectId) {
                 setMessages(prev => [...prev, message]);
             } else if (receiverId) {
-                // In personal chat, show if message is between us and the other user (either direction)
-                const matches = messageSenderId === receiverId || messageReceiverId === receiverId;
-                if (matches && !messageProjectId) {
-                    setMessages(prev => [...prev, message]);
+                // In personal chat, show if message belongs to the current 1:1 conversation
+                // Two cases: (sender is the other user, receiver is us) OR (sender is us, receiver is other user)
+                const currentUserId = useAuthStore.getState().user?.id;
+                const isFromOther = messageSenderId === receiverId && !messageProjectId;
+                const isFromMe = messageSenderId === currentUserId && (messageReceiverId === receiverId) && !messageProjectId;
+                if ((isFromOther || isFromMe)) {
+                    setMessages(prev => {
+                        // Avoid duplicates (e.g. if message already added optimistically)
+                        if (prev.some(m => m._id === message._id)) return prev;
+                        return [...prev, message];
+                    });
                 }
             }
         };
