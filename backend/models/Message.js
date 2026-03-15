@@ -34,7 +34,8 @@ const messageSchema = new mongoose.Schema({
     fileName: String,
     fileUrl: String,
     fileSize: Number,
-    mimetype: String
+    mimetype: String,
+    duration: Number
   },
   isEdited: {
     type: Boolean,

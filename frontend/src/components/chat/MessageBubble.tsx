@@ -213,7 +213,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                             <div className="relative group/media mt-0.5 -mx-1 -my-1 rounded-xl overflow-hidden bg-black/5">
                                 <img
                                     src={message.metadata.fileUrl.startsWith('/')
-                                        ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                        ? (message.metadata.fileUrl.startsWith('/uploads')
+                                            ? message.metadata.fileUrl
+                                            : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
                                         : message.metadata.fileUrl
                                     }
                                     alt={message.metadata.fileName}
@@ -237,7 +239,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                     controls
                                     className="w-full"
                                     src={message.metadata.fileUrl.startsWith('/')
-                                        ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                        ? (message.metadata.fileUrl.startsWith('/uploads')
+                                            ? message.metadata.fileUrl
+                                            : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
                                         : message.metadata.fileUrl
                                     }
                                 />
@@ -258,7 +262,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                 <div className="flex items-center gap-2 mb-2">
                                     <Music size={14} className={isOwnMessage ? 'text-white/80' : 'text-primary-600'} />
                                     <span className={`text-[10px] font-medium truncate ${isOwnMessage ? 'text-white/80' : 'text-secondary-600'}`}>
-                                        {message.metadata.fileName}
+                                        {message.metadata.duration ? `Voice Message (${Math.floor(message.metadata.duration / 60)}:${(message.metadata.duration % 60).toString().padStart(2, '0')})` : message.metadata.fileName}
                                     </span>
                                 </div>
                                 <audio
@@ -266,19 +270,16 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                     preload="metadata"
                                     className="w-full h-8"
                                     onLoadedMetadata={(e) => {
-                                        const audio = e.currentTarget;
-                                        if (audio.duration === Infinity || isNaN(audio.duration) || audio.duration === 0) {
-                                            audio.currentTime = 1e101;
-                                            audio.ontimeupdate = function () {
-                                                this.ontimeupdate = null;
-                                                audio.currentTime = 0;
-                                            }
-                                        }
+                                        // No longer need aggressive seeking hack as we have metadata.duration
+                                        // Just ensure it's at the start
+                                        e.currentTarget.currentTime = 0;
                                     }}
                                 >
                                     <source
                                         src={message.metadata.fileUrl.startsWith('/')
-                                            ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                            ? (message.metadata.fileUrl.startsWith('/uploads')
+                                                ? message.metadata.fileUrl
+                                                : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
                                             : message.metadata.fileUrl
                                         }
                                         type={message.metadata.mimetype || 'audio/webm'}
@@ -291,7 +292,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                         {message.type === 'file' && message.metadata?.fileUrl && (
                             <a
                                 href={message.metadata.fileUrl.startsWith('/')
-                                    ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                    ? (message.metadata.fileUrl.startsWith('/uploads')
+                                        ? message.metadata.fileUrl
+                                        : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
                                     : message.metadata.fileUrl
                                 }
                                 download={message.metadata.fileName}

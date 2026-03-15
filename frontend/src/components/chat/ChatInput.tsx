@@ -114,7 +114,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
                         fileName: data.fileName || audioFile.name,
                         fileUrl: data.url,
                         fileSize: data.fileSize,
-                        mimetype: mimeType
+                        mimetype: mimeType,
+                        duration: recordingSeconds
                     });
                 } catch (err) {
                     console.error('Voice upload failed:', err);

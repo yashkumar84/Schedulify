@@ -25,6 +25,7 @@ export interface Message {
         fileUrl?: string;
         fileSize?: number;
         mimetype?: string;
+        duration?: number;
     };
     isEdited?: boolean;
     editedAt?: string;
