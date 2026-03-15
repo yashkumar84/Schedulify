@@ -33,7 +33,8 @@ const messageSchema = new mongoose.Schema({
   metadata: {
     fileName: String,
     fileUrl: String,
-    fileSize: Number
+    fileSize: Number,
+    mimetype: String
   },
   isEdited: {
     type: Boolean,

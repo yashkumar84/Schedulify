@@ -211,8 +211,13 @@ export const useChat = (projectId?: string, receiverId?: string) => {
             ));
         };
 
+        const handleMessageError = (data: { message: string }) => {
+            alert(`Chat Error: ${data.message}`);
+        };
+
         socket.on('new-message', handleNewMessage);
         socket.on('message-edited', handleMessageEdited);
+        socket.on('message-error', handleMessageError);
         socket.on('online-users', handleOnlineUsers);
         socket.on('user-joined', handleUserJoined);
         socket.on('user-left', handleUserLeft);
@@ -224,6 +229,7 @@ export const useChat = (projectId?: string, receiverId?: string) => {
             if (projectId) socket.emit('leave-project', projectId);
             socket.off('new-message', handleNewMessage);
             socket.off('message-edited', handleMessageEdited);
+            socket.off('message-error', handleMessageError);
             socket.off('online-users', handleOnlineUsers);
             socket.off('user-joined', handleUserJoined);
             socket.off('user-left', handleUserLeft);

@@ -263,12 +263,27 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                 </div>
                                 <audio
                                     controls
+                                    preload="metadata"
                                     className="w-full h-8"
-                                    src={message.metadata.fileUrl.startsWith('/')
-                                        ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
-                                        : message.metadata.fileUrl
-                                    }
-                                />
+                                    onLoadedMetadata={(e) => {
+                                        const audio = e.currentTarget;
+                                        if (audio.duration === Infinity || isNaN(audio.duration) || audio.duration === 0) {
+                                            audio.currentTime = 1e101;
+                                            audio.ontimeupdate = function () {
+                                                this.ontimeupdate = null;
+                                                audio.currentTime = 0;
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <source
+                                        src={message.metadata.fileUrl.startsWith('/')
+                                            ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`
+                                            : message.metadata.fileUrl
+                                        }
+                                        type={message.metadata.mimetype || 'audio/webm'}
+                                    />
+                                </audio>
                             </div>
                         )}
 

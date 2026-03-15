@@ -96,6 +96,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
                 stream.getTracks().forEach(track => track.stop());
 
                 const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+
+                // If the blob is too small (< 100 bytes), it's likely a failed/empty recording
+                if (audioBlob.size < 100) {
+                    console.warn('Audio recording too short or empty');
+                    setIsUploading(false);
+                    return;
+                }
+
                 const ext = mimeType.includes('webm') ? 'webm' : 'ogg';
                 const audioFile = new File([audioBlob], `voice-note.${ext}`, { type: mimeType });
 
