@@ -212,11 +212,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                         {message.type === 'image' && message.metadata?.fileUrl && (
                             <div className="relative group/media mt-0.5 -mx-1 -my-1 rounded-xl overflow-hidden bg-black/5">
                                 <img
-                                    src={message.metadata.fileUrl.startsWith('/')
-                                        ? (message.metadata.fileUrl.startsWith('/uploads')
+                                    src={message.metadata.fileUrl.startsWith('http') || message.metadata.fileUrl.startsWith('blob:')
+                                        ? message.metadata.fileUrl
+                                        : message.metadata.fileUrl.startsWith('/uploads')
                                             ? message.metadata.fileUrl
-                                            : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
-                                        : message.metadata.fileUrl
+                                            : message.metadata.fileUrl.startsWith('/api')
+                                                ? message.metadata.fileUrl.replace('/api', '')
+                                                : message.metadata.fileUrl
                                     }
                                     alt={message.metadata.fileName}
                                     className="max-w-full max-h-[300px] object-cover rounded-lg cursor-pointer hover:brightness-90 transition-all duration-200"
@@ -238,11 +240,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                 <video
                                     controls
                                     className="w-full"
-                                    src={message.metadata.fileUrl.startsWith('/')
-                                        ? (message.metadata.fileUrl.startsWith('/uploads')
+                                    src={message.metadata.fileUrl.startsWith('http') || message.metadata.fileUrl.startsWith('blob:')
+                                        ? message.metadata.fileUrl
+                                        : message.metadata.fileUrl.startsWith('/uploads')
                                             ? message.metadata.fileUrl
-                                            : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
-                                        : message.metadata.fileUrl
+                                            : message.metadata.fileUrl.startsWith('/api')
+                                                ? message.metadata.fileUrl.replace('/api', '')
+                                                : message.metadata.fileUrl
                                     }
                                 />
                                 <div
@@ -266,24 +270,20 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                     </span>
                                 </div>
                                 <audio
+                                    key={message._id}
                                     controls
                                     preload="metadata"
-                                    className="w-full h-8"
-                                    onLoadedMetadata={(e) => {
-                                        // No longer need aggressive seeking hack as we have metadata.duration
-                                        // Just ensure it's at the start
-                                        e.currentTarget.currentTime = 0;
-                                    }}
+                                    className="w-full h-10"
+                                    src={message.metadata.fileUrl.startsWith('http') || message.metadata.fileUrl.startsWith('blob:')
+                                        ? message.metadata.fileUrl
+                                        : message.metadata.fileUrl.startsWith('/uploads')
+                                            ? message.metadata.fileUrl
+                                            : message.metadata.fileUrl.startsWith('/api')
+                                                ? message.metadata.fileUrl.replace('/api', '')
+                                                : message.metadata.fileUrl
+                                    }
                                 >
-                                    <source
-                                        src={message.metadata.fileUrl.startsWith('/')
-                                            ? (message.metadata.fileUrl.startsWith('/uploads')
-                                                ? message.metadata.fileUrl
-                                                : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
-                                            : message.metadata.fileUrl
-                                        }
-                                        type={message.metadata.mimetype?.split(';')[0] || 'audio/webm'}
-                                    />
+                                    Your browser does not support the audio element.
                                 </audio>
                             </div>
                         )}
@@ -291,11 +291,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                         {/* FILE */}
                         {message.type === 'file' && message.metadata?.fileUrl && (
                             <a
-                                href={message.metadata.fileUrl.startsWith('/')
-                                    ? (message.metadata.fileUrl.startsWith('/uploads')
+                                href={message.metadata.fileUrl.startsWith('http') || message.metadata.fileUrl.startsWith('blob:')
+                                    ? message.metadata.fileUrl
+                                    : message.metadata.fileUrl.startsWith('/uploads')
                                         ? message.metadata.fileUrl
-                                        : `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${message.metadata.fileUrl.replace('/api', '')}`)
-                                    : message.metadata.fileUrl
+                                        : message.metadata.fileUrl.startsWith('/api')
+                                            ? message.metadata.fileUrl.replace('/api', '')
+                                            : message.metadata.fileUrl
                                 }
                                 download={message.metadata.fileName}
                                 target="_blank"

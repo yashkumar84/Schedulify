@@ -149,24 +149,28 @@ export const useChat = (projectId?: string, receiverId?: string) => {
             const messageSenderId = message.sender?._id;
             const messageReceiverId = message.receiver?._id;
 
-            if (projectId && messageProjectId === projectId) {
-                setMessages(prev => {
-                    // Avoid duplicates (already done for personal, now for project)
-                    if (prev.some(m => m._id === message._id)) return prev;
-                    return [...prev, message];
-                });
-            } else if (receiverId) {
-                // In personal chat, show if message belongs to the current 1:1 conversation
-                // Two cases: (sender is the other user, receiver is us) OR (sender is us, receiver is other user)
-                const currentUserId = useAuthStore.getState().user?.id;
-                const isFromOther = messageSenderId === receiverId && !messageProjectId;
-                const isFromMe = messageSenderId === currentUserId && (messageReceiverId === receiverId) && !messageProjectId;
-                if ((isFromOther || isFromMe)) {
+            if (projectId) {
+                // In project chat, only show messages for THIS project
+                if (messageProjectId === projectId) {
                     setMessages(prev => {
-                        // Avoid duplicates (e.g. if message already added optimistically)
                         if (prev.some(m => m._id === message._id)) return prev;
                         return [...prev, message];
                     });
+                }
+            } else if (receiverId) {
+                // In personal chat, only show if it's NOT a project message
+                // and belongs to the current 1:1 conversation
+                if (!messageProjectId) {
+                    const currentUserId = useAuthStore.getState().user?.id || (useAuthStore.getState().user as any)?._id;
+                    const isFromOther = messageSenderId === receiverId;
+                    const isFromMe = messageSenderId === currentUserId && messageReceiverId === receiverId;
+
+                    if (isFromOther || isFromMe) {
+                        setMessages(prev => {
+                            if (prev.some(m => m._id === message._id)) return prev;
+                            return [...prev, message];
+                        });
+                    }
                 }
             }
         };

@@ -116,9 +116,12 @@ const initializeSocket = (io) => {
 
         if (projectId && projectId !== 'personal') {
           messageData.project = projectId;
+          console.log(`📡 Preparing project message for ${projectId}`);
         } else if (receiverId) {
           messageData.receiver = receiverId;
+          console.log(`👤 Preparing personal message for ${receiverId}`);
         } else {
+          console.error('❌ Missing destination for message');
           return socket.emit('message-error', { message: 'Project ID or Receiver ID is required' });
         }
 
