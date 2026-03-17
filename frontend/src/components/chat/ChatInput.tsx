@@ -19,6 +19,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<number | null>(null);
+    const startTimeRef = useRef<number>(0);
 
     // Cleanup timer on unmount
     useEffect(() => {
@@ -96,6 +97,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
                 stream.getTracks().forEach(track => track.stop());
 
                 const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
 
                 // If the blob is too small (< 100 bytes), it's likely a failed/empty recording
                 if (audioBlob.size < 100) {
@@ -104,7 +106,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
                     return;
                 }
 
-                console.log('Audio Blob created:', { size: audioBlob.size, type: audioBlob.type });
+                console.log('Audio Blob created:', { size: audioBlob.size, type: audioBlob.type, duration });
 
                 const ext = mimeType.includes('webm') ? 'webm' : 'ogg';
                 const audioFile = new File([audioBlob], `voice-note.${ext}`, { type: mimeType });
@@ -119,16 +121,18 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
                         fileUrl: data.url,
                         fileSize: data.fileSize,
                         mimetype: data.mimetype || mimeType,
-                        duration: recordingSeconds
+                        duration: duration || recordingSeconds || 1 // Fallback
                     });
                 } catch (err) {
                     console.error('Voice upload failed:', err);
                     alert('Failed to send voice message. Please try again.');
                 } finally {
                     setIsUploading(false);
+                    setRecordingSeconds(0);
                 }
             };
 
+            startTimeRef.current = Date.now();
             mediaRecorder.start(100);
             setIsRecording(true);
             setRecordingSeconds(0);
@@ -151,7 +155,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onUploadFile, onTy
             timerRef.current = null;
         }
         setIsRecording(false);
-        setRecordingSeconds(0);
     };
 
     const cancelRecording = () => {

@@ -272,7 +272,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onEdit }) => {
                                 <audio
                                     key={message._id}
                                     controls
-                                    preload="metadata"
+                                    preload="auto"
                                     className="w-full h-10"
                                     src={message.metadata.fileUrl.startsWith('http') || message.metadata.fileUrl.startsWith('blob:')
                                         ? message.metadata.fileUrl
